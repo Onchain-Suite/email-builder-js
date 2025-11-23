@@ -1,0 +1,1 @@
+- Adding metatags like {{firstName}} so we can make the naming convention dynamic.

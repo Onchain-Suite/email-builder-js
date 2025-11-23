@@ -8,22 +8,39 @@ const BRAND_YELLOW = '#F6DC9F';
 const BRAND_PURPLE = '#6C0E7C';
 const BRAND_BROWN = '#CC996C';
 const STANDARD_FONT_FAMILY =
-  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
+  '-apple-system, BlinkMacSystemFont, Instrument Sans, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
 const MONOSPACE_FONT_FAMILY =
   'ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace';
 
 const BASE_THEME = createTheme({
   palette: {
     background: {
-      default: '#f2f5f7',
+      default: '#F7F8FA',
     },
     text: {
-      primary: '#1F1F21',
-      secondary: '#4F4F4F',
+      primary: '#111827',
+      secondary: '#6B7280',
     },
   },
   typography: {
-    fontFamily: STANDARD_FONT_FAMILY,
+    fontFamily: 'Instrument Sans, ' + STANDARD_FONT_FAMILY,
+  },
+  transitions: {
+    duration: {
+      shortest: 150,
+      shorter: 200,
+      short: 250,
+      standard: 300,
+      complex: 375,
+      enteringScreen: 300,
+      leavingScreen: 250,
+    },
+    easing: {
+      easeInOut: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      easeOut: 'cubic-bezier(0.0, 0, 0.2, 1)',
+      easeIn: 'cubic-bezier(0.4, 0, 1, 1)',
+      sharp: 'cubic-bezier(0.4, 0, 0.6, 1)',
+    },
   },
 });
 
@@ -83,6 +100,12 @@ const THEME = createTheme(BASE_THEME, {
           font-family: ${MONOSPACE_FONT_FAMILY}
           white-space: pre-wrap;
           font-size: 12px;
+        }
+        body {
+          background: radial-gradient(1200px at 20% 10%, ${alpha(BRAND_BLUE, 0.06)} 0, transparent 70%),
+                      radial-gradient(800px at 80% 0%, ${alpha(BRAND_PURPLE, 0.06)} 0, transparent 60%),
+                      ${BASE_THEME.palette.background.default};
+          transition: background 300ms ${BASE_THEME.transitions.easing.easeOut};
         }
       `,
     },
@@ -202,6 +225,12 @@ const THEME = createTheme(BASE_THEME, {
           elevation: 2,
         },
       },
+      styleOverrides: {
+        paper: {
+          transition: `transform ${BASE_THEME.transitions.duration.enteringScreen}ms ${BASE_THEME.transitions.easing.easeOut}, opacity ${BASE_THEME.transitions.duration.enteringScreen}ms ${BASE_THEME.transitions.easing.easeOut}`,
+          willChange: 'transform, opacity',
+        },
+      },
     },
     MuiTooltip: {
       styleOverrides: {
@@ -245,8 +274,13 @@ const THEME = createTheme(BASE_THEME, {
     },
     MuiPaper: {
       defaultProps: {
-        elevation: 2,
-        square: true,
+        elevation: 1,
+        square: false,
+      },
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+        },
       },
     },
     MuiButtonBase: {
@@ -274,6 +308,13 @@ const THEME = createTheme(BASE_THEME, {
         },
         colorSecondary: {
           color: BASE_THEME.palette.grey[500],
+        },
+        root: {
+          borderRadius: 10,
+          transition: `background-color ${BASE_THEME.transitions.duration.short}ms ${BASE_THEME.transitions.easing.easeOut}`,
+          '&:hover': {
+            backgroundColor: alpha(BASE_THEME.palette.text.primary, 0.06),
+          },
         },
       },
     },
@@ -306,6 +347,10 @@ const THEME = createTheme(BASE_THEME, {
             color: BASE_THEME.palette.text.primary,
           },
         },
+        root: {
+          transition: `all ${BASE_THEME.transitions.duration.short}ms ${BASE_THEME.transitions.easing.easeOut}`,
+          borderRadius: 10,
+        },
       },
     },
     MuiToggleButton: {
@@ -313,6 +358,10 @@ const THEME = createTheme(BASE_THEME, {
         root: {
           paddingLeft: BASE_THEME.spacing(1.5),
           paddingRight: BASE_THEME.spacing(1.5),
+          borderRadius: 10,
+          '&.Mui-selected': {
+            backgroundColor: alpha(BASE_THEME.palette.text.primary, 0.06),
+          },
         },
       },
     },
@@ -401,7 +450,7 @@ const THEME = createTheme(BASE_THEME, {
       },
       styleOverrides: {
         indicator: {
-          height: 1,
+          height: 2,
           backgroundColor: BASE_THEME.palette.text.primary,
         },
       },
@@ -417,7 +466,7 @@ const THEME = createTheme(BASE_THEME, {
           fontFamily: BASE_THEME.typography.fontFamily,
           lineHeight: 1.5,
           fontWeight: BASE_THEME.typography.fontWeightMedium,
-          transition: 'color 0.2s',
+          transition: `color ${BASE_THEME.transitions.duration.short}ms ${BASE_THEME.transitions.easing.easeOut}`,
           '&.Mui-selected': {
             color: BASE_THEME.palette.text.primary,
           },
@@ -430,7 +479,8 @@ const THEME = createTheme(BASE_THEME, {
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 0,
+          borderRadius: 12,
+          boxShadow: BASE_THEME.shadows[2],
         },
       },
     },
@@ -450,48 +500,52 @@ const THEME = createTheme(BASE_THEME, {
       fontSize: BASE_THEME.typography.pxToRem(40),
       lineHeight: 1.2,
       letterSpacing: '-0.02em',
-      fontWeight: BASE_THEME.typography.fontWeightMedium,
+      fontWeight: 600,
     },
     h2: {
       fontFamily: BASE_THEME.typography.fontFamily,
       fontSize: BASE_THEME.typography.pxToRem(32),
       lineHeight: 1.2,
       letterSpacing: '-0.02em',
-      fontWeight: BASE_THEME.typography.fontWeightMedium,
+      fontWeight: 600,
     },
     h3: {
       fontFamily: BASE_THEME.typography.fontFamily,
       fontSize: BASE_THEME.typography.pxToRem(24),
       lineHeight: 1.5,
       letterSpacing: '-0.01em',
-      fontWeight: BASE_THEME.typography.fontWeightMedium,
+      fontWeight: 600,
     },
     h4: {
       fontFamily: BASE_THEME.typography.fontFamily,
       fontSize: BASE_THEME.typography.pxToRem(20),
       lineHeight: 1.5,
       letterSpacing: '-0.01em',
-      fontWeight: BASE_THEME.typography.fontWeightMedium,
+      fontWeight: 600,
     },
     h5: {
       fontFamily: BASE_THEME.typography.fontFamily,
       fontSize: BASE_THEME.typography.pxToRem(18),
       lineHeight: 1.5,
       letterSpacing: '-0.01em',
-      fontWeight: BASE_THEME.typography.fontWeightMedium,
+      fontWeight: 600,
     },
     h6: {
       fontFamily: BASE_THEME.typography.fontFamily,
       fontSize: BASE_THEME.typography.pxToRem(16),
       lineHeight: 1.5,
       letterSpacing: '-0.005em',
-      fontWeight: BASE_THEME.typography.fontWeightMedium,
+      fontWeight: 600,
     },
     body1: {
       fontSize: BASE_THEME.typography.pxToRem(14),
+      fontWeight: 400,
+      lineHeight: 1.7,
     },
     body2: {
       fontSize: BASE_THEME.typography.pxToRem(12),
+      fontWeight: 400,
+      lineHeight: 1.7,
     },
     overline: {
       fontWeight: BASE_THEME.typography.fontWeightMedium,

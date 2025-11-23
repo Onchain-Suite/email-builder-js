@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { IosShareOutlined } from '@mui/icons-material';
+import { Share } from 'lucide-react';
 import { IconButton, Snackbar, Tooltip } from '@mui/material';
 
 import { useDocument } from '../../documents/editor/EditorContext';
@@ -23,7 +23,7 @@ export default function ShareButton() {
     <>
       <IconButton onClick={onClick}>
         <Tooltip title="Share current template">
-          <IosShareOutlined fontSize="small" />
+          <Share size={16} />
         </Tooltip>
       </IconButton>
       <Snackbar

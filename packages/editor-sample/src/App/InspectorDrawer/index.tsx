@@ -13,13 +13,16 @@ export default function InspectorDrawer() {
   const selectedSidebarTab = useSelectedSidebarTab();
   const inspectorDrawerOpen = useInspectorDrawerOpen();
 
-  const renderCurrentSidebarPanel = () => {
+  const renderCurrentSidebarPanel = (): JSX.Element | null => {
     switch (selectedSidebarTab) {
       case 'block-configuration':
         return <ConfigurationPanel />;
       case 'styles':
         return <StylesPanel />;
+      case 'history':
+        return null;
     }
+    return null;
   };
 
   return (
@@ -33,7 +36,8 @@ export default function InspectorDrawer() {
     >
       <Box sx={{ width: INSPECTOR_DRAWER_WIDTH, height: 49, borderBottom: 1, borderColor: 'divider' }}>
         <Box px={2}>
-          <Tabs value={selectedSidebarTab} onChange={(_, v) => setSidebarTab(v)}>
+          <Tabs value={selectedSidebarTab} onChange={(_: React.SyntheticEvent, v: any) => setSidebarTab(v)}>
+            <Tab value="history" label="History" />
             <Tab value="styles" label="Styles" />
             <Tab value="block-configuration" label="Inspect" />
           </Tabs>

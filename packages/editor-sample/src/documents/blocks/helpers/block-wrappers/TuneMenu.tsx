@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ArrowDownwardOutlined, ArrowUpwardOutlined, DeleteOutlined } from '@mui/icons-material';
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 import { IconButton, Paper, Stack, SxProps, Tooltip } from '@mui/material';
 
 import { TEditorBlock } from '../../../editor/core';
@@ -153,17 +153,17 @@ export default function TuneMenu({ blockId }: Props) {
       <Stack>
         <Tooltip title="Move up" placement="left-start">
           <IconButton onClick={() => handleMoveClick('up')} sx={{ color: 'text.primary' }}>
-            <ArrowUpwardOutlined fontSize="small" />
+            <ArrowUp size={16} />
           </IconButton>
         </Tooltip>
         <Tooltip title="Move down" placement="left-start">
           <IconButton onClick={() => handleMoveClick('down')} sx={{ color: 'text.primary' }}>
-            <ArrowDownwardOutlined fontSize="small" />
+            <ArrowDown size={16} />
           </IconButton>
         </Tooltip>
         <Tooltip title="Delete" placement="left-start">
           <IconButton onClick={handleDeleteClick} sx={{ color: 'text.primary' }}>
-            <DeleteOutlined fontSize="small" />
+            <Trash2 size={16} />
           </IconButton>
         </Tooltip>
       </Stack>

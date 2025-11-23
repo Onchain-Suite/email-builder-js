@@ -8,7 +8,7 @@ type TValue = {
   document: TEditorConfiguration;
 
   selectedBlockId: string | null;
-  selectedSidebarTab: 'block-configuration' | 'styles';
+  selectedSidebarTab: 'block-configuration' | 'styles' | 'history';
   selectedMainTab: 'editor' | 'preview' | 'json' | 'html';
   selectedScreenSize: 'desktop' | 'mobile';
 
@@ -19,7 +19,7 @@ type TValue = {
 const editorStateStore = create<TValue>(() => ({
   document: getConfiguration(window.location.hash),
   selectedBlockId: null,
-  selectedSidebarTab: 'styles',
+  selectedSidebarTab: 'history',
   selectedMainTab: 'editor',
   selectedScreenSize: 'desktop',
 
@@ -60,7 +60,7 @@ export function useSamplesDrawerOpen() {
 }
 
 export function setSelectedBlockId(selectedBlockId: TValue['selectedBlockId']) {
-  const selectedSidebarTab = selectedBlockId === null ? 'styles' : 'block-configuration';
+  const selectedSidebarTab = selectedBlockId === null ? 'history' : 'block-configuration';
   const options: Partial<TValue> = {};
   if (selectedBlockId !== null) {
     options.inspectorDrawerOpen = true;
@@ -79,7 +79,7 @@ export function setSidebarTab(selectedSidebarTab: TValue['selectedSidebarTab']) 
 export function resetDocument(document: TValue['document']) {
   return editorStateStore.setState({
     document,
-    selectedSidebarTab: 'styles',
+    selectedSidebarTab: 'history',
     selectedBlockId: null,
   });
 }

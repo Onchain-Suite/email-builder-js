@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { MonitorOutlined, PhoneIphoneOutlined } from '@mui/icons-material';
-import { Box, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
+import { Monitor, Smartphone } from 'lucide-react';
+import { Box, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip, Paper } from '@mui/material';
 import { Reader } from '@usewaypoint/email-builder';
 
 import EditorBlock from '../../documents/editor/EditorBlock';
@@ -28,6 +28,8 @@ export default function TemplatePanel() {
 
   let mainBoxSx: SxProps = {
     height: '100%',
+    px: 20,
+    py: 5,
   };
   if (selectedScreenSize === 'mobile') {
     mainBoxSx = {
@@ -37,6 +39,7 @@ export default function TemplatePanel() {
       height: 800,
       boxShadow:
         'rgba(33, 36, 67, 0.04) 0px 10px 20px, rgba(33, 36, 67, 0.04) 0px 2px 6px, rgba(33, 36, 67, 0.04) 0px 0px 1px',
+      p: 3,
     };
   }
 
@@ -56,13 +59,17 @@ export default function TemplatePanel() {
       case 'editor':
         return (
           <Box sx={mainBoxSx}>
-            <EditorBlock id="root" />
+            <Paper sx={{ p: 2 }}>
+              <EditorBlock id="root" />
+            </Paper>
           </Box>
         );
       case 'preview':
         return (
           <Box sx={mainBoxSx}>
-            <Reader document={document} rootBlockId="root" />
+            <Paper sx={{ p: 2 }}>
+              <Reader document={document} rootBlockId="root" />
+            </Paper>
           </Box>
         );
       case 'html':
@@ -80,6 +87,9 @@ export default function TemplatePanel() {
           borderBottom: 1,
           borderColor: 'divider',
           backgroundColor: 'white',
+          boxShadow:
+            '0px 2px 8px rgba(17, 24, 39, 0.06), 0px 1px 3px rgba(17, 24, 39, 0.04)',
+          transition: 'box-shadow 300ms ease-out, backdrop-filter 300ms ease-out',
           position: 'sticky',
           top: 0,
           zIndex: 'appBar',
@@ -100,19 +110,19 @@ export default function TemplatePanel() {
             <ToggleButtonGroup value={selectedScreenSize} exclusive size="small" onChange={handleScreenSizeChange}>
               <ToggleButton value="desktop">
                 <Tooltip title="Desktop view">
-                  <MonitorOutlined fontSize="small" />
+                  <Monitor size={16} />
                 </Tooltip>
               </ToggleButton>
               <ToggleButton value="mobile">
                 <Tooltip title="Mobile view">
-                  <PhoneIphoneOutlined fontSize="small" />
+                  <Smartphone size={16} />
                 </Tooltip>
               </ToggleButton>
             </ToggleButtonGroup>
             <ShareButton />
           </Stack>
         </Stack>
-        <ToggleInspectorPanelButton />
+        
       </Stack>
       <Box sx={{ height: 'calc(100vh - 49px)', overflow: 'auto', minWidth: 370 }}>{renderMainPanel()}</Box>
     </>

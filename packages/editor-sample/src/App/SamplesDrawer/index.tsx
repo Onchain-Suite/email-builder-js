@@ -1,16 +1,38 @@
 import React from 'react';
 
-import { Box, Button, Divider, Drawer, Link, Stack, Typography } from '@mui/material';
+import { Box, Divider, Drawer, Stack, Tab, Tabs, Typography } from '@mui/material';
 
-import { useSamplesDrawerOpen } from '../../documents/editor/EditorContext';
+import { setSidebarTab, useSamplesDrawerOpen, useSelectedSidebarTab } from '../../documents/editor/EditorContext';
 
+import ConfigurationPanel from '../InspectorDrawer/ConfigurationPanel';
+import StylesPanel from '../InspectorDrawer/StylesPanel';
 import SidebarButton from './SidebarButton';
-import logo from './waypoint.svg';
 
 export const SAMPLES_DRAWER_WIDTH = 240;
 
 export default function SamplesDrawer() {
   const samplesDrawerOpen = useSamplesDrawerOpen();
+  const selectedSidebarTab = useSelectedSidebarTab();
+
+  const renderCurrentSidebarPanel = () => {
+    switch (selectedSidebarTab) {
+      case 'block-configuration':
+        return <ConfigurationPanel />;
+      case 'styles':
+        return <StylesPanel />;
+      case 'history':
+        return (
+          <Stack spacing={2} sx={{ '& .MuiButtonBase-root': { width: '100%', justifyContent: 'flex-start' } }}>
+            <Typography variant="overline" color="text.secondary">Templates</Typography>
+            <Stack alignItems="flex-start">
+              <SidebarButton href="#">Empty</SidebarButton>
+              <SidebarButton href="#sample/welcome">Welcome email</SidebarButton>
+            </Stack>
+            <Divider />
+          </Stack>
+        );
+    }
+  };
 
   return (
     <Drawer
@@ -19,60 +41,23 @@ export default function SamplesDrawer() {
       open={samplesDrawerOpen}
       sx={{
         width: samplesDrawerOpen ? SAMPLES_DRAWER_WIDTH : 0,
+        '& .MuiDrawer-paper': {
+          top: 56,
+          height: 'calc(100% - 56px)',
+        },
       }}
     >
-      <Stack spacing={3} py={1} px={2} width={SAMPLES_DRAWER_WIDTH} justifyContent="space-between" height="100%">
-        <Stack spacing={2} sx={{ '& .MuiButtonBase-root': { width: '100%', justifyContent: 'flex-start' } }}>
-          <Typography variant="h6" component="h1" sx={{ p: 0.75 }}>
-            EmailBuilder.js
-          </Typography>
-
-          <Stack alignItems="flex-start">
-            <SidebarButton href="#">Empty</SidebarButton>
-            <SidebarButton href="#sample/welcome">Welcome email</SidebarButton>
-            <SidebarButton href="#sample/one-time-password">One-time passcode (OTP)</SidebarButton>
-            <SidebarButton href="#sample/reset-password">Reset password</SidebarButton>
-            <SidebarButton href="#sample/order-ecomerce">E-commerce receipt</SidebarButton>
-            <SidebarButton href="#sample/subscription-receipt">Subscription receipt</SidebarButton>
-            <SidebarButton href="#sample/reservation-reminder">Reservation reminder</SidebarButton>
-            <SidebarButton href="#sample/post-metrics-report">Post metrics</SidebarButton>
-            <SidebarButton href="#sample/respond-to-message">Respond to inquiry</SidebarButton>
-          </Stack>
-
-          <Divider />
-
-          <Stack>
-            <Button size="small" href="https://www.usewaypoint.com/open-source/emailbuilderjs" target="_blank">
-              Learn more
-            </Button>
-            <Button size="small" href="https://github.com/usewaypoint/email-builder-js" target="_blank">
-              View on GitHub
-            </Button>
-          </Stack>
-        </Stack>
-        <Stack spacing={2} px={0.75} py={3}>
-          <Link href="https://usewaypoint.com?utm_source=emailbuilderjs" target="_blank" sx={{ lineHeight: 1 }}>
-            <Box component="img" src={logo} width={32} />
-          </Link>
-          <Box>
-            <Typography variant="overline" gutterBottom>
-              Looking to send emails?
-            </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
-              Waypoint is an end-to-end email API with a &apos;pro&apos; version of this template builder with dynamic
-              variables, loops, conditionals, drag and drop, layouts, and more.
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            color="primary"
-            sx={{ justifyContent: 'center' }}
-            href="https://usewaypoint.com?utm_source=emailbuilderjs"
-            target="_blank"
-          >
-            Learn more
-          </Button>
-        </Stack>
+      <Stack spacing={0} width={SAMPLES_DRAWER_WIDTH} height="100%">
+        <Box px={2} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={selectedSidebarTab} onChange={(_: React.SyntheticEvent, v: any) => setSidebarTab(v)}>
+            <Tab value="history" label="History" />
+            <Tab value="styles" label="Styles" />
+            <Tab value="block-configuration" label="Inspect" />
+          </Tabs>
+        </Box>
+        <Box sx={{ height: 'calc(100% - 49px - 52px)', overflow: 'auto' }} p={2}>
+          {renderCurrentSidebarPanel()}
+        </Box>
       </Stack>
     </Drawer>
   );

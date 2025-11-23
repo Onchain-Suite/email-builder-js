@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { FirstPageOutlined, MenuOutlined } from '@mui/icons-material';
+import { ChevronLeft, Menu } from 'lucide-react';
 import { IconButton } from '@mui/material';
 
 import { toggleSamplesDrawerOpen, useSamplesDrawerOpen } from '../../documents/editor/EditorContext';
@@ -8,9 +8,9 @@ import { toggleSamplesDrawerOpen, useSamplesDrawerOpen } from '../../documents/e
 function useIcon() {
   const samplesDrawerOpen = useSamplesDrawerOpen();
   if (samplesDrawerOpen) {
-    return <FirstPageOutlined fontSize="small" />;
+    return <ChevronLeft size={16} />;
   }
-  return <MenuOutlined fontSize="small" />;
+  return <Menu size={16} />;
 }
 
 export default function ToggleSamplesPanelButton() {

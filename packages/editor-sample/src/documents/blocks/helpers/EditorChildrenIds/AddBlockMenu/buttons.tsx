@@ -1,17 +1,17 @@
 import React from 'react';
 
 import {
-  AccountCircleOutlined,
-  Crop32Outlined,
-  HMobiledataOutlined,
-  HorizontalRuleOutlined,
-  HtmlOutlined,
-  ImageOutlined,
-  LibraryAddOutlined,
-  NotesOutlined,
-  SmartButtonOutlined,
-  ViewColumnOutlined,
-} from '@mui/icons-material';
+  UserRound,
+  Crop,
+  Heading,
+  Minus,
+  Code2,
+  Image,
+  Box,
+  FileText,
+  SquareMousePointer,
+  Columns,
+} from 'lucide-react';
 
 import { TEditorBlock } from '../../../../editor/core';
 
@@ -23,7 +23,7 @@ type TButtonProps = {
 export const BUTTONS: TButtonProps[] = [
   {
     label: 'Heading',
-    icon: <HMobiledataOutlined />,
+    icon: <Heading size={18} />,
     block: () => ({
       type: 'Heading',
       data: {
@@ -36,7 +36,7 @@ export const BUTTONS: TButtonProps[] = [
   },
   {
     label: 'Text',
-    icon: <NotesOutlined />,
+    icon: <FileText size={18} />,
     block: () => ({
       type: 'Text',
       data: {
@@ -51,7 +51,7 @@ export const BUTTONS: TButtonProps[] = [
 
   {
     label: 'Button',
-    icon: <SmartButtonOutlined />,
+    icon: <SquareMousePointer size={18} />,
     block: () => ({
       type: 'Button',
       data: {
@@ -65,7 +65,7 @@ export const BUTTONS: TButtonProps[] = [
   },
   {
     label: 'Image',
-    icon: <ImageOutlined />,
+    icon: <Image size={18} />,
     block: () => ({
       type: 'Image',
       data: {
@@ -81,7 +81,7 @@ export const BUTTONS: TButtonProps[] = [
   },
   {
     label: 'Avatar',
-    icon: <AccountCircleOutlined />,
+    icon: <UserRound size={18} />,
     block: () => ({
       type: 'Avatar',
       data: {
@@ -95,7 +95,7 @@ export const BUTTONS: TButtonProps[] = [
   },
   {
     label: 'Divider',
-    icon: <HorizontalRuleOutlined />,
+    icon: <Minus size={18} />,
     block: () => ({
       type: 'Divider',
       data: {
@@ -108,7 +108,7 @@ export const BUTTONS: TButtonProps[] = [
   },
   {
     label: 'Spacer',
-    icon: <Crop32Outlined />,
+    icon: <Crop size={18} />,
     block: () => ({
       type: 'Spacer',
       data: {},
@@ -116,7 +116,7 @@ export const BUTTONS: TButtonProps[] = [
   },
   {
     label: 'Html',
-    icon: <HtmlOutlined />,
+    icon: <Code2 size={18} />,
     block: () => ({
       type: 'Html',
       data: {
@@ -131,7 +131,7 @@ export const BUTTONS: TButtonProps[] = [
   },
   {
     label: 'Columns',
-    icon: <ViewColumnOutlined />,
+    icon: <Columns size={18} />,
     block: () => ({
       type: 'ColumnsContainer',
       data: {
@@ -146,7 +146,7 @@ export const BUTTONS: TButtonProps[] = [
   },
   {
     label: 'Container',
-    icon: <LibraryAddOutlined />,
+    icon: <Box size={18} />,
     block: () => ({
       type: 'Container',
       data: {
