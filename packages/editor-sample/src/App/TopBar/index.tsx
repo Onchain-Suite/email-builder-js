@@ -3,11 +3,14 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
 import { Box, Button, Chip, IconButton, Menu, MenuItem, Snackbar, Stack, Tooltip, Typography } from '@mui/material';
 
-import { setSidebarTab, toggleSamplesDrawerOpen } from '../../documents/editor/EditorContext';
+import { renderToStaticMarkup } from '@usewaypoint/email-builder';
+import { setSidebarTab, toggleSamplesDrawerOpen, useDocument } from '../../documents/editor/EditorContext';
 
 export default function TopBar() {
   const [menuEl, setMenuEl] = useState<null | HTMLElement>(null);
   const [message, setMessage] = useState<string | null>(null);
+  
+  const document = useDocument();
 
   const open = Boolean(menuEl);
   const timestamp = useMemo(() => new Date().toLocaleString(), []);
@@ -22,7 +25,19 @@ export default function TopBar() {
   const handleCloseMenu = () => setMenuEl(null);
 
   const handleSaveTemplate = () => {
-    setMessage('Template saved');
+    // Generate HTML from the document
+    const html = renderToStaticMarkup(document, { rootBlockId: 'root' });
+
+    // Send data back to host app
+    window.parent.postMessage({
+        type: 'EMAIL_BUILDER_SAVE',
+        data: {
+            json: document,
+            html: html,
+        }
+    }, '*');
+
+    setMessage('Template saved & sent to host app');
     handleCloseMenu();
   };
   const handleChangeTemplate = () => {

@@ -3,6 +3,7 @@ import React from 'react';
 import { Stack, useTheme } from '@mui/material';
 
 import { useSamplesDrawerOpen } from '../documents/editor/EditorContext';
+import { VariablesProvider } from '../documents/editor/VariablesContext';
 
 import SamplesDrawer, { SAMPLES_DRAWER_WIDTH } from './SamplesDrawer';
 import TopBar from './TopBar';
@@ -16,13 +17,16 @@ function useDrawerTransition(cssProperty: 'margin-left' | 'margin-right', open: 
   });
 }
 
+import PostMessageListener from './PostMessageListener';
+
 export default function App() {
   const samplesDrawerOpen = useSamplesDrawerOpen();
 
   const marginLeftTransition = useDrawerTransition('margin-left', samplesDrawerOpen);
 
   return (
-    <>
+    <VariablesProvider>
+      <PostMessageListener />
       <TopBar />
       <SamplesDrawer />
 
@@ -34,6 +38,6 @@ export default function App() {
       >
         <TemplatePanel />
       </Stack>
-    </>
+    </VariablesProvider>
   );
 }

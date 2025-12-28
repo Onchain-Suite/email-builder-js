@@ -1,0 +1,199 @@
+- Adding metatags like {{firstName}} so we can make the naming convention dynamic.
+
+Here’s the clean way to think about **what variables your campaign builder should support** and 
+**how you should pass them between backend ↔ builder ↔ backend** — without locking yourself into 
+a static list.
+
+---
+
+# ⭐ The 2 Types of Variables You Should Support
+
+## **1️⃣ System-level dynamic variables**
+
+These are the common ones *every* user expects in email personalization.
+
+### **User (recipient) variables**
+
+These come from your audience/contact database:
+
+* `first_name`
+* `last_name`
+* `full_name`
+* `email`
+* `phone`
+* `country`
+* `city`
+* `state`
+* `signup_date`
+* `last_login`
+* `preferred_language`
+* `level` (loyalty tier, role, etc.)
+* `unsubscribe_link`
+* `profile_update_link`
+
+### **Organization/account variables**
+
+From the sender’s business profile:
+
+* `company_name`
+* `company_logo_url`
+* `company_address`
+* `company_website`
+* `support_email`
+* `company_phone`
+* `brand_color_primary`
+* `brand_color_secondary`
+
+### **Campaign-specific variables**
+
+Inserted when creating or scheduling a campaign:
+
+* `campaign_name`
+* `campaign_id`
+* `send_date`
+* `utm_source` / `utm_campaign`
+* `base_url`
+
+---
+
+## **2️⃣ User-defined custom variables (VERY important)**
+
+This gives users the power to create *their own* dynamic values without updating your backend schema.
+
+Examples of user-created variables:
+
+* `discount_code`
+* `event_date`
+* `course_name`
+* `product_list`
+* `invite_link`
+* `account_manager_name`
+* `custom_message_block`
+
+This is where you avoid “static code” and let the builder be fully flexible.
+
+---
+
+# ⭐ How Your System Should Handle Dynamic Variables
+
+### **A. Backend → Builder (to let users insert variables)**
+
+You send:
+
+```json
+{
+  "systemVariables": {
+    "user": ["first_name", "last_name", "email"],
+    "organization": ["company_name", "company_address", "support_email"],
+    "campaign": ["campaign_name", "send_date"]
+  },
+  "customVariables": ["discount_code", "event_date", "invite_url"]
+}
+```
+
+### **Builder UI**
+
+Shows a dropdown/search to insert variables like:
+
+```
+{{ first_name }}
+{{ company_name }}
+{{ discount_code }}
+```
+
+---
+
+### **B. Builder → Backend (when user saves campaign)**
+
+User builds email template and returns something like:
+
+```html
+<p>Hi {{ first_name }},</p>
+<p>Here is your invite link: {{ invite_url }}</p>
+<p>Thanks, {{ company_name }}</p>
+```
+
+Your backend stores this **as raw template text**.
+
+---
+
+### **C. Backend → Sending stage (resolve the variables)**
+
+When sending to each recipient:
+
+1. Load the template
+2. Load the user’s dynamic values
+3. Load organization/campaign variables
+4. Load custom variables (user-defined)
+5. Render using something like Mustache, Liquid, or Handlebars
+
+Example final output:
+
+```html
+<p>Hi Joshua,</p>
+<p>Here is your invite link: https://example.com/invite/abc123</p>
+<p>Thanks, Onchain Suite</p>
+```
+
+---
+
+# ⭐ The Final Variable Model You Should Support
+
+### **System-built (always available)**
+
+* `recipient.*`
+* `company.*`
+* `campaign.*`
+
+### **User-defined (editable per workspace)**
+
+* `custom.*`
+
+### **Block-level variables**
+
+If you allow dynamic sections:
+
+* `product.*`
+* `transaction.*`
+* `event.*`
+
+---
+
+# ⭐ How to Make It Fully Flexible (No Static Code Problem)
+
+Let users define ANY variable name in their workspace settings:
+
+### Example workspace custom variables:
+
+```
+product_name
+product_price
+expiry_date
+promo_id
+```
+
+And let them fill the values when generating the campaign:
+
+```json
+{
+  "promo_id": "BLACKFRIDAY2025",
+  "expiry_date": "2025-12-01"
+}
+```
+
+This is exactly how Klaviyo, Mailchimp, and ConvertKit do it.
+
+---
+
+# ⭐ If You Want
+
+I can also generate for you:
+
+✅ The full **database schema**
+✅ The **API structure** for dynamic variables
+✅ The **template rendering flow**
+✅ The **React components** for the variable selector dropdown
+✅ How to build a **Liquid/Mustache parser**
+✅ How to enforce validation and fallbacks (`{{ first_name | default: "there" }}`)
+
+Just tell me what you need next.
