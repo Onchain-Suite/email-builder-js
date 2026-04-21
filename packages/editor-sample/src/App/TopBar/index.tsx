@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 
 import { ArrowLeft, ChevronDown } from 'lucide-react';
-import { Box, Button, Chip, IconButton, Menu, MenuItem, Snackbar, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Button, Chip, IconButton, Menu, MenuItem, Snackbar, Stack, Tooltip } from '@mui/material';
 
 import { renderToStaticMarkup } from '@usewaypoint/email-builder';
 import { setSidebarTab, toggleSamplesDrawerOpen, useDocument } from '../../documents/editor/EditorContext';
@@ -13,7 +13,6 @@ export default function TopBar() {
   const document = useDocument();
 
   const open = Boolean(menuEl);
-  const timestamp = useMemo(() => new Date().toLocaleString(), []);
 
   const handleOpenMenu: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     if (open) {
