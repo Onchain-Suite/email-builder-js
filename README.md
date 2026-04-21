@@ -17,7 +17,7 @@ EmailBuilder.js is a free and open-source email template builder for developers.
 
 ![Image of designer](images/designer.png)
 
-<br>
+<br />
 
 ## Build simple welcome emails to complex reports
 
@@ -36,7 +36,7 @@ Sample templates available in the playground:
 - [Post metrics](https://usewaypoint.github.io/email-builder-js/#sample/post-metrics-report)
 - [Respond to inquiry](https://usewaypoint.github.io/email-builder-js/#sample/respond-to-message)
 
-<br>
+<br />
 
 ## Why?
 
@@ -44,7 +44,7 @@ It's finally time to stop using 90's style HTML and CSS to build product emails.
 
 Since the builder is completely free and open source, teams can self-host the builder and extend as needed.
 
-<br>
+<br />
 
 ## Built-in blocks
 
@@ -61,7 +61,7 @@ Each block is it's own npm package that can be included in the builder. These ar
 - [Spacer](https://github.com/usewaypoint/email-builder-js/tree/main/packages/block-spacer)
 - [Container](https://github.com/usewaypoint/email-builder-js/tree/main/packages/block-text)
 
-<br>
+<br />
 
 ## Email client support
 
@@ -75,7 +75,7 @@ The email builder can output to a clean JSON or raw HTML. You can see this from 
 
 ![Image of JSON in builder](images/output.png)
 
-<br>
+<br />
 
 ## Using EmailBuilder.js
 
@@ -137,13 +137,13 @@ import { Reader } from '@usewaypoint/email-builder';
 <Reader document={CONFIGURATION} rootBlockId="root" />;
 ```
 
-<br>
+<br />
 
 ## Sending emails
 
 In most cases, you'll want to take the EmailBuilder.js configuration, render it to HTML, and then send it as an email. Here are a couple of examples on how you can do this using the same configuration from the examples above.
 
-<br>
+<br />
 
 ### Sending through nodemailer
 
@@ -166,7 +166,7 @@ await transporter.sendMail({
 });
 ```
 
-<br>
+<br />
 
 ### Sending through an email API
 
@@ -200,7 +200,7 @@ await axios({
 });
 ```
 
----
+***
 
 ## Self hosting the Editor
 
@@ -213,9 +213,9 @@ Quick start:
 3. Go to the editor-sample package: `cd packages/editor-sample`
 4. Install packages: `npm install`
 5. Run the server: `npx vite`
-6. Open in browser: http://localhost:5173/email-builder-js/
+6. Open in browser: <http://localhost:5173/email-builder-js/>
 
----
+***
 
 ## Contribute
 
@@ -223,18 +223,16 @@ Feel free to report any bug on the issues page. If possible, please add steps, i
 
 If you are looking to provide code contribututions to EmailBuilder.js, please fork the repository and create a new pull request. We will check your code closely and provide feedback.
 
-<br>
+***
 
----
-
-<br>
+<br />
 
 ## Brought to you by Waypoint
 
 EmailBuilder.js is the community version of our much-loved no-code template builder on Waypoint. If you are looking for a better collaboration experience for your team, check out [Waypoint's email API](https://usewaypoint.com/) with a hosted template builder with dynamic LiquidJS variables, drag and drop, reusable layouts, loops, and additional blocks.
 
-<br>
+<br />
 
 ## Looking for something special?
 
-Need special consultation, a one-off feature, integration, or something else for your business? We can help or put you in touch with someone that can – contact us at support@usewaypoint.com and share your details.
+Need special consultation, a one-off feature, integration, or something else for your business? We can help or put you in touch with someone that can – contact us at <support@usewaypoint.com> and share your details.
