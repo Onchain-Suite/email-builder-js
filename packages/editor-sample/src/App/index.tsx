@@ -37,6 +37,22 @@ export default function App() {
     return raw?.replace(/\/+$/, '') ?? '';
   }, []);
 
+  const buildErrorFromResponse = async (res: Response) => {
+    const contentType = res.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+      const data = (await res.json().catch(() => null)) as any;
+      const message =
+        data?.error?.message ??
+        data?.message ??
+        (typeof data?.error === 'string' ? data.error : null) ??
+        `Request failed (HTTP ${res.status})`;
+      return new Error(message);
+    }
+
+    const text = await res.text().catch(() => '');
+    return new Error(text || `Request failed (HTTP ${res.status})`);
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const campaign = params.get('campaign');
@@ -63,17 +79,27 @@ export default function App() {
         const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
           method: 'GET',
           headers: { Accept: 'application/json' },
+          credentials: 'include',
         });
 
         if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          throw new Error(text || `Failed to load template (HTTP ${res.status})`);
+          if (res.status === 401 && embedded) {
+            window.parent.postMessage(
+              { type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } },
+              '*'
+            );
+          }
+          throw await buildErrorFromResponse(res);
         }
 
         const data = (await res.json()) as any;
-        const fetchedDocument = (data?.document ?? data?.emailConfig ?? data) as any;
+        if (data?.success === false) {
+          throw new Error(data?.error?.message ?? data?.message ?? 'Failed to load template.');
+        }
+        const payload = (data?.data ?? data?.payload ?? data) as any;
+        const fetchedDocument = (payload?.document ?? payload?.emailConfig ?? payload) as any;
 
-        if (!cancelled && fetchedDocument) {
+        if (!cancelled && fetchedDocument && typeof fetchedDocument === 'object' && fetchedDocument.root) {
           resetDocument(fetchedDocument);
         }
       } catch (e) {
@@ -113,11 +139,17 @@ export default function App() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(document),
+        credentials: 'include',
       });
 
       if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || `Failed to save template (HTTP ${res.status})`);
+        if (res.status === 401 && embedded) {
+          window.parent.postMessage(
+            { type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } },
+            '*'
+          );
+        }
+        throw await buildErrorFromResponse(res);
       }
 
       setSuccessMessage('Template saved.');
