@@ -42,8 +42,8 @@ export default function SamplesDrawer() {
       sx={{
         width: samplesDrawerOpen ? SAMPLES_DRAWER_WIDTH : 0,
         '& .MuiDrawer-paper': {
-          top: 56,
-          height: 'calc(100% - 56px)',
+          top: 'var(--editor-top-offset, 56px)',
+          height: 'calc(100% - var(--editor-top-offset, 56px))',
         },
       }}
     >
