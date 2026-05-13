@@ -25,17 +25,22 @@ export default function App() {
 
   const marginLeftTransition = useDrawerTransition('margin-left', samplesDrawerOpen);
 
-  const [campaignId, setCampaignId] = useState<string | null>(null);
-  const [embedded, setEmbedded] = useState(false);
+  const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const [campaignId] = useState<string | null>(searchParams.get('campaign'));
+  const [embedded] = useState(searchParams.get('embedded') === 'true');
+  const [token] = useState<string | null>(searchParams.get('token'));
+
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const apiUrl = useMemo(() => {
+    const host = searchParams.get('host');
+    if (host) return host.replace(/\/+$/, '');
     const raw = import.meta.env.VITE_API_URL;
     return raw?.replace(/\/+$/, '') ?? '';
-  }, []);
+  }, [searchParams]);
 
   const buildErrorFromResponse = async (res: Response) => {
     const contentType = res.headers.get('content-type') ?? '';
@@ -53,14 +58,7 @@ export default function App() {
     return new Error(text || `Request failed (HTTP ${res.status})`);
   };
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const campaign = params.get('campaign');
-    const embeddedValue = params.get('embedded');
-
-    setCampaignId(campaign);
-    setEmbedded(embeddedValue === 'true');
-  }, []);
+  // Removed old useEffect for parsing params
 
   useEffect(() => {
     let cancelled = false;
@@ -76,10 +74,15 @@ export default function App() {
       setErrorMessage(null);
 
       try {
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
           method: 'GET',
-          headers: { Accept: 'application/json' },
-          credentials: 'include',
+          headers,
+          credentials: 'omit',
         });
 
         if (!res.ok) {
@@ -135,11 +138,16 @@ export default function App() {
     setErrorMessage(null);
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers,
         body: JSON.stringify(document),
-        credentials: 'include',
+        credentials: 'omit',
       });
 
       if (!res.ok) {
