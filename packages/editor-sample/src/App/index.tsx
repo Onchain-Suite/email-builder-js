@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Alert, Backdrop, Button, CircularProgress, Snackbar, Stack, useTheme } from '@mui/material';
 
@@ -42,7 +42,53 @@ export default function App() {
     return raw?.replace(/\/+$/, '') ?? '';
   });
 
-  const buildErrorFromResponse = async (res: Response) => {
+  const [parentOrigin, setParentOrigin] = useState<string | null>(() => {
+    const fromQuery = searchParams.get('parentOrigin');
+    if (fromQuery) return fromQuery;
+    try {
+      if (window.document.referrer) return new URL(window.document.referrer).origin;
+    } catch {
+      return null;
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    (window as any).__EMAIL_BUILDER_PARENT_ORIGIN__ = parentOrigin;
+  }, [parentOrigin]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const keysToStrip = ['token', 'sessionToken', 'editorToken'];
+    let changed = false;
+    for (const key of keysToStrip) {
+      if (url.searchParams.has(key)) {
+        url.searchParams.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) {
+      const nextSearch = url.searchParams.toString();
+      window.history.replaceState(null, '', `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}${url.hash}`);
+    }
+  }, []);
+
+  const resolveOriginFromApiBaseUrl = useCallback((apiBaseUrl: string | null) => {
+    if (!apiBaseUrl) return null;
+    try {
+      return new URL(apiBaseUrl).origin;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const postToParent = useCallback((message: any) => {
+    if (!embedded) return;
+    if (!parentOrigin) return;
+    window.parent.postMessage(message, parentOrigin);
+  }, [embedded, parentOrigin]);
+
+  const buildErrorFromResponse = useCallback(async (res: Response) => {
     const contentType = res.headers.get('content-type') ?? '';
     if (contentType.includes('application/json')) {
       const data = (await res.json().catch(() => null)) as any;
@@ -56,20 +102,24 @@ export default function App() {
 
     const text = await res.text().catch(() => '');
     return new Error(text || `Request failed (HTTP ${res.status})`);
-  };
+  }, []);
 
-  // Removed old useEffect for parsing params
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== window.parent) return;
       const data = (event.data ?? {}) as any;
       if (data?.type !== 'HOST_CONFIG') return;
 
+      const nextApiBaseUrl = (data.apiBaseUrl ?? data.apiUrl ?? null) as string | null;
+      const expectedOrigin = resolveOriginFromApiBaseUrl(nextApiBaseUrl) ?? resolveOriginFromApiBaseUrl(apiUrl);
+      if (expectedOrigin && event.origin !== expectedOrigin) return;
+      if (parentOrigin && event.origin !== parentOrigin) return;
+
       const nextCampaignId = (data.campaign ?? data.campaignId ?? null) as string | null;
       const nextToken = (data.token ?? data.sessionToken ?? data.editorToken ?? null) as string | null;
-      const nextApiBaseUrl = (data.apiBaseUrl ?? data.apiUrl ?? null) as string | null;
       const nextEmbedded = typeof data.embedded === 'boolean' ? data.embedded : null;
 
+      setParentOrigin(event.origin);
       if (nextCampaignId !== null) setCampaignId(nextCampaignId);
       if (nextToken !== null) setToken(nextToken);
       if (nextApiBaseUrl) setApiUrl(nextApiBaseUrl.replace(/\/+$/, ''));
@@ -78,14 +128,27 @@ export default function App() {
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, []);
+  }, [apiUrl, parentOrigin, resolveOriginFromApiBaseUrl]);
+
+  useEffect(() => {
+    if (!embedded) return;
+    if (!token) {
+      const t = window.setTimeout(() => {
+        setErrorMessage('Missing token. Host app must provide token via HOST_CONFIG or query string.');
+      }, 2000);
+      return () => window.clearTimeout(t);
+    }
+    return;
+  }, [embedded, token]);
+
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
 
     const fetchTemplate = async () => {
       if (!campaignId) return;
       if (!apiUrl) {
-        setErrorMessage('Missing VITE_API_URL; cannot load template.');
+        setErrorMessage('Missing apiBaseUrl; cannot load template.');
         return;
       }
 
@@ -105,15 +168,13 @@ export default function App() {
           method: 'GET',
           headers,
           credentials: 'omit',
+          signal: controller.signal,
         });
 
 
         if (!res.ok) {
           if (res.status === 401 && embedded) {
-            window.parent.postMessage(
-              { type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } },
-              '*'
-            );
+            postToParent({ type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } });
           }
           throw await buildErrorFromResponse(res);
         }
@@ -144,8 +205,9 @@ export default function App() {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [apiUrl, campaignId, embedded, token]);
+  }, [apiUrl, buildErrorFromResponse, campaignId, embedded, postToParent, token]);
 
   const handleSaveTemplate = async () => {
     if (!campaignId) {
@@ -153,7 +215,11 @@ export default function App() {
       return;
     }
     if (!apiUrl) {
-      setErrorMessage('Missing VITE_API_URL; cannot save template.');
+      setErrorMessage('Missing apiBaseUrl; cannot save template.');
+      return;
+    }
+    if (embedded && !token) {
+      setErrorMessage('Missing token. Host app must provide token via HOST_CONFIG or query string.');
       return;
     }
 
@@ -175,10 +241,7 @@ export default function App() {
 
       if (!res.ok) {
         if (res.status === 401 && embedded) {
-          window.parent.postMessage(
-            { type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } },
-            '*'
-          );
+          postToParent({ type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } });
         }
         throw await buildErrorFromResponse(res);
       }
@@ -186,13 +249,7 @@ export default function App() {
       setSuccessMessage('Template saved.');
 
       if (embedded) {
-        window.parent.postMessage(
-          {
-            type: 'EMAIL_SAVED',
-            payload: { campaignId, document },
-          },
-          '*'
-        );
+        postToParent({ type: 'EMAIL_SAVED', payload: { campaignId, document } });
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to save template.';
