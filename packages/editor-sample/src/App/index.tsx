@@ -162,6 +162,7 @@ export default function App() {
         const headers: Record<string, string> = { Accept: 'application/json' };
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
+          headers['x-editor-token'] = token;
         }
 
         const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
@@ -230,6 +231,7 @@ export default function App() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        headers['x-editor-token'] = token;
       }
 
       const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
