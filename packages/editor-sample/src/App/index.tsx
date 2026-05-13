@@ -26,10 +26,22 @@ export default function App() {
   const marginLeftTransition = useDrawerTransition('margin-left', samplesDrawerOpen);
 
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
-  const [campaignId, setCampaignId] = useState<string | null>(searchParams.get('campaign'));
-  const [embedded, setEmbedded] = useState(searchParams.get('embedded') === 'true');
+  const initialEmbedded = useMemo(() => searchParams.get('embedded') === 'true', [searchParams]);
+
+  const hostOriginAllowlist = useMemo(() => {
+    const raw = (import.meta.env.VITE_HOST_ORIGIN_ALLOWLIST ?? import.meta.env.VITE_HOST_ORIGINS ?? '') as string;
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }, []);
+
+  const [embedded, setEmbedded] = useState(initialEmbedded);
+  const [campaignId, setCampaignId] = useState<string | null>(initialEmbedded ? null : searchParams.get('campaign'));
   const [token, setToken] = useState<string | null>(
-    searchParams.get('token') ?? searchParams.get('sessionToken') ?? searchParams.get('editorToken')
+    initialEmbedded
+      ? null
+      : searchParams.get('token') ?? searchParams.get('sessionToken') ?? searchParams.get('editorToken')
   );
 
   const [loadingTemplate, setLoadingTemplate] = useState(false);
@@ -38,19 +50,26 @@ export default function App() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [apiUrl, setApiUrl] = useState(() => {
-    const raw = searchParams.get('apiBaseUrl') ?? searchParams.get('host') ?? import.meta.env.VITE_API_URL;
+    const raw = initialEmbedded
+      ? ''
+      : searchParams.get('apiBaseUrl') ?? searchParams.get('host') ?? import.meta.env.VITE_API_URL;
     return raw?.replace(/\/+$/, '') ?? '';
   });
 
   const [parentOrigin, setParentOrigin] = useState<string | null>(() => {
     const fromQuery = searchParams.get('parentOrigin');
-    if (fromQuery) return fromQuery;
+    if (fromQuery) {
+      if (hostOriginAllowlist.length > 0 && !hostOriginAllowlist.includes(fromQuery)) return null;
+      return fromQuery;
+    }
     try {
-      if (window.document.referrer) return new URL(window.document.referrer).origin;
+      if (!window.document.referrer) return null;
+      const referrerOrigin = new URL(window.document.referrer).origin;
+      if (hostOriginAllowlist.length > 0 && !hostOriginAllowlist.includes(referrerOrigin)) return null;
+      return referrerOrigin;
     } catch {
       return null;
     }
-    return null;
   });
 
   useEffect(() => {
@@ -73,6 +92,15 @@ export default function App() {
     }
   }, []);
 
+  const isHostOriginAllowed = useCallback(
+    (origin: string) => {
+      if (!embedded) return true;
+      if (hostOriginAllowlist.length === 0) return false;
+      return hostOriginAllowlist.includes(origin);
+    },
+    [embedded, hostOriginAllowlist]
+  );
+
   const resolveOriginFromApiBaseUrl = useCallback((apiBaseUrl: string | null) => {
     if (!apiBaseUrl) return null;
     try {
@@ -84,9 +112,14 @@ export default function App() {
 
   const postToParent = useCallback((message: any) => {
     if (!embedded) return;
-    if (!parentOrigin) return;
-    window.parent.postMessage(message, parentOrigin);
-  }, [embedded, parentOrigin]);
+    if (parentOrigin) {
+      window.parent.postMessage(message, parentOrigin);
+      return;
+    }
+    for (const origin of hostOriginAllowlist) {
+      window.parent.postMessage(message, origin);
+    }
+  }, [embedded, hostOriginAllowlist, parentOrigin]);
 
   const buildErrorFromResponse = useCallback(async (res: Response) => {
     const contentType = res.headers.get('content-type') ?? '';
@@ -105,15 +138,23 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!embedded) return;
+    postToParent({ type: 'EDITOR_READY' });
+    postToParent({ type: 'REQUEST_HOST_CONFIG' });
+  }, [embedded, postToParent]);
+
+  useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== window.parent) return;
+      if (!isHostOriginAllowed(event.origin)) return;
+      if (parentOrigin && event.origin !== parentOrigin) return;
+
       const data = (event.data ?? {}) as any;
       if (data?.type !== 'HOST_CONFIG') return;
 
       const nextApiBaseUrl = (data.apiBaseUrl ?? data.apiUrl ?? null) as string | null;
       const expectedOrigin = resolveOriginFromApiBaseUrl(nextApiBaseUrl) ?? resolveOriginFromApiBaseUrl(apiUrl);
       if (expectedOrigin && event.origin !== expectedOrigin) return;
-      if (parentOrigin && event.origin !== parentOrigin) return;
 
       const nextCampaignId = (data.campaign ?? data.campaignId ?? null) as string | null;
       const nextToken = (data.token ?? data.sessionToken ?? data.editorToken ?? null) as string | null;
@@ -128,18 +169,22 @@ export default function App() {
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [apiUrl, parentOrigin, resolveOriginFromApiBaseUrl]);
+  }, [apiUrl, isHostOriginAllowed, parentOrigin, resolveOriginFromApiBaseUrl]);
 
   useEffect(() => {
     if (!embedded) return;
+    if (hostOriginAllowlist.length === 0) {
+      setErrorMessage('Missing VITE_HOST_ORIGIN_ALLOWLIST. Refusing to accept host config in embedded mode.');
+      return;
+    }
     if (!token) {
       const t = window.setTimeout(() => {
-        setErrorMessage('Missing token. Host app must provide token via HOST_CONFIG or query string.');
+        setErrorMessage('Missing token. Host app must provide token via HOST_CONFIG.');
       }, 2000);
       return () => window.clearTimeout(t);
     }
     return;
-  }, [embedded, token]);
+  }, [embedded, hostOriginAllowlist.length, token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,7 +257,7 @@ export default function App() {
 
   const handleSaveTemplate = async () => {
     if (!campaignId) {
-      setErrorMessage('Missing campaign query param; cannot save template.');
+      setErrorMessage(embedded ? 'Missing campaignId. Host app must provide campaign via HOST_CONFIG.' : 'Missing campaign query param; cannot save template.');
       return;
     }
     if (!apiUrl) {
@@ -220,7 +265,7 @@ export default function App() {
       return;
     }
     if (embedded && !token) {
-      setErrorMessage('Missing token. Host app must provide token via HOST_CONFIG or query string.');
+      setErrorMessage('Missing token. Host app must provide token via HOST_CONFIG.');
       return;
     }
 
