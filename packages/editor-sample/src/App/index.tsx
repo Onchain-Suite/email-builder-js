@@ -43,6 +43,7 @@ export default function App() {
       ? null
       : searchParams.get('token') ?? searchParams.get('sessionToken') ?? searchParams.get('editorToken')
   );
+  const [orgId, setOrgId] = useState<string | null>(initialEmbedded ? null : searchParams.get('orgId'));
 
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -110,16 +111,19 @@ export default function App() {
     }
   }, []);
 
-  const postToParent = useCallback((message: any) => {
-    if (!embedded) return;
-    if (parentOrigin) {
-      window.parent.postMessage(message, parentOrigin);
-      return;
-    }
-    for (const origin of hostOriginAllowlist) {
-      window.parent.postMessage(message, origin);
-    }
-  }, [embedded, hostOriginAllowlist, parentOrigin]);
+  const postToParent = useCallback(
+    (message: any) => {
+      if (!embedded) return;
+      if (parentOrigin) {
+        window.parent.postMessage(message, parentOrigin);
+        return;
+      }
+      for (const origin of hostOriginAllowlist) {
+        window.parent.postMessage(message, origin);
+      }
+    },
+    [embedded, hostOriginAllowlist, parentOrigin]
+  );
 
   const buildErrorFromResponse = useCallback(async (res: Response) => {
     const contentType = res.headers.get('content-type') ?? '';
@@ -158,11 +162,13 @@ export default function App() {
 
       const nextCampaignId = (data.campaign ?? data.campaignId ?? null) as string | null;
       const nextToken = (data.token ?? data.sessionToken ?? data.editorToken ?? null) as string | null;
+      const nextOrgId = (data.orgId ?? data.organizationId ?? data.org_id ?? null) as string | null;
       const nextEmbedded = typeof data.embedded === 'boolean' ? data.embedded : null;
 
       setParentOrigin(event.origin);
       if (nextCampaignId !== null) setCampaignId(nextCampaignId);
       if (nextToken !== null) setToken(nextToken);
+      if (nextOrgId !== null) setOrgId(nextOrgId);
       if (nextApiBaseUrl) setApiUrl(nextApiBaseUrl.replace(/\/+$/, ''));
       if (nextEmbedded !== null) setEmbedded(nextEmbedded);
     };
@@ -177,6 +183,12 @@ export default function App() {
       setErrorMessage('Missing VITE_HOST_ORIGIN_ALLOWLIST. Refusing to accept host config in embedded mode.');
       return;
     }
+    if (!orgId) {
+      const t = window.setTimeout(() => {
+        setErrorMessage('Missing orgId. Host app must provide orgId via HOST_CONFIG.');
+      }, 2000);
+      return () => window.clearTimeout(t);
+    }
     if (!token) {
       const t = window.setTimeout(() => {
         setErrorMessage('Missing token. Host app must provide token via HOST_CONFIG.');
@@ -184,7 +196,7 @@ export default function App() {
       return () => window.clearTimeout(t);
     }
     return;
-  }, [embedded, hostOriginAllowlist.length, token]);
+  }, [embedded, hostOriginAllowlist.length, orgId, token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -200,6 +212,9 @@ export default function App() {
       if (embedded && !token) {
         return;
       }
+      if (embedded && !orgId) {
+        return;
+      }
       setLoadingTemplate(true);
       setErrorMessage(null);
 
@@ -209,6 +224,9 @@ export default function App() {
           headers['Authorization'] = `Bearer ${token}`;
           headers['x-editor-token'] = token;
         }
+        if (orgId) {
+          headers['x-org-id'] = orgId;
+        }
 
         const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
           method: 'GET',
@@ -216,7 +234,6 @@ export default function App() {
           credentials: 'omit',
           signal: controller.signal,
         });
-
 
         if (!res.ok) {
           if (res.status === 401 && embedded) {
@@ -253,11 +270,15 @@ export default function App() {
       cancelled = true;
       controller.abort();
     };
-  }, [apiUrl, buildErrorFromResponse, campaignId, embedded, postToParent, token]);
+  }, [apiUrl, buildErrorFromResponse, campaignId, embedded, orgId, postToParent, token]);
 
   const handleSaveTemplate = async () => {
     if (!campaignId) {
-      setErrorMessage(embedded ? 'Missing campaignId. Host app must provide campaign via HOST_CONFIG.' : 'Missing campaign query param; cannot save template.');
+      setErrorMessage(
+        embedded
+          ? 'Missing campaignId. Host app must provide campaign via HOST_CONFIG.'
+          : 'Missing campaign query param; cannot save template.'
+      );
       return;
     }
     if (!apiUrl) {
@@ -266,6 +287,10 @@ export default function App() {
     }
     if (embedded && !token) {
       setErrorMessage('Missing token. Host app must provide token via HOST_CONFIG.');
+      return;
+    }
+    if (embedded && !orgId) {
+      setErrorMessage('Missing orgId. Host app must provide orgId via HOST_CONFIG.');
       return;
     }
 
@@ -277,6 +302,9 @@ export default function App() {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
         headers['x-editor-token'] = token;
+      }
+      if (orgId) {
+        headers['x-org-id'] = orgId;
       }
 
       const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
