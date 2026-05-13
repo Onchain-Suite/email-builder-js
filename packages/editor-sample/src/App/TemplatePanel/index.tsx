@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Maximize2, Minimize2, Monitor, Smartphone } from 'lucide-react';
 import { Box, IconButton, Paper, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
@@ -24,6 +24,17 @@ export default function TemplatePanel() {
   const document = useDocument();
   const selectedMainTab = useSelectedMainTab();
   const selectedScreenSize = useSelectedScreenSize();
+
+  const getParentOrigin = useCallback(() => {
+    const fromGlobal = (window as any).__EMAIL_BUILDER_PARENT_ORIGIN__ as string | undefined;
+    if (fromGlobal) return fromGlobal;
+    try {
+      if (window.document.referrer) return new URL(window.document.referrer).origin;
+    } catch {
+      return null;
+    }
+    return null;
+  }, []);
 
   const baseTopOffsetPx = useMemo(() => {
     const embeddedValue = new URLSearchParams(window.location.search).get('embedded');
@@ -74,16 +85,12 @@ export default function TemplatePanel() {
   useEffect(() => {
     const embeddedValue = new URLSearchParams(window.location.search).get('embedded');
     if (embeddedValue !== 'true') return;
-    window.parent.postMessage(
-      {
-        type: 'EMAIL_FULLSCREEN_CHANGE',
-        payload: { fullscreen: isFullscreenActive },
-      },
-      '*'
-    );
-  }, [isFullscreenActive]);
+    const parentOrigin = getParentOrigin();
+    if (!parentOrigin) return;
+    window.parent.postMessage({ type: 'EMAIL_FULLSCREEN_CHANGE', payload: { fullscreen: isFullscreenActive } }, parentOrigin);
+  }, [getParentOrigin, isFullscreenActive]);
 
-  const requestFullscreen = async () => {
+  const requestFullscreen = useCallback(async () => {
     const el = window.document.documentElement as any;
     const fn =
       el.requestFullscreen?.bind(el) ??
@@ -104,9 +111,9 @@ export default function TemplatePanel() {
     } catch {
       setIsPseudoFullscreen(true);
     }
-  };
+  }, []);
 
-  const exitFullscreen = async () => {
+  const exitFullscreen = useCallback(async () => {
     const d = window.document as any;
     const fn =
       window.document.exitFullscreen?.bind(window.document) ??
@@ -127,18 +134,21 @@ export default function TemplatePanel() {
     } catch {
       setIsPseudoFullscreen(false);
     }
-  };
+  }, []);
 
-  const handleToggleFullscreen = async () => {
+  const handleToggleFullscreen = useCallback(async () => {
     if (getFullscreenElement() || isPseudoFullscreen) {
       await exitFullscreen();
       return;
     }
     await requestFullscreen();
-  };
+  }, [exitFullscreen, isPseudoFullscreen, requestFullscreen]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      if (event.source !== window.parent) return;
+      const parentOrigin = getParentOrigin();
+      if (parentOrigin && event.origin !== parentOrigin) return;
       const type = (event.data as any)?.type;
       if (type === 'EMAIL_REQUEST_FULLSCREEN') {
         void requestFullscreen();
@@ -152,7 +162,7 @@ export default function TemplatePanel() {
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [isPseudoFullscreen]);
+  }, [exitFullscreen, getParentOrigin, handleToggleFullscreen, isPseudoFullscreen, requestFullscreen]);
 
   let mainBoxSx: SxProps = {
     height: '100%',
