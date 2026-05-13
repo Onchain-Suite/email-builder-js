@@ -26,21 +26,21 @@ export default function App() {
   const marginLeftTransition = useDrawerTransition('margin-left', samplesDrawerOpen);
 
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
-  const [campaignId] = useState<string | null>(searchParams.get('campaign'));
-  const [embedded] = useState(searchParams.get('embedded') === 'true');
-  const [token] = useState<string | null>(searchParams.get('token'));
+  const [campaignId, setCampaignId] = useState<string | null>(searchParams.get('campaign'));
+  const [embedded, setEmbedded] = useState(searchParams.get('embedded') === 'true');
+  const [token, setToken] = useState<string | null>(
+    searchParams.get('token') ?? searchParams.get('sessionToken') ?? searchParams.get('editorToken')
+  );
 
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const apiUrl = useMemo(() => {
-    const host = searchParams.get('host');
-    if (host) return host.replace(/\/+$/, '');
-    const raw = import.meta.env.VITE_API_URL;
+  const [apiUrl, setApiUrl] = useState(() => {
+    const raw = searchParams.get('apiBaseUrl') ?? searchParams.get('host') ?? import.meta.env.VITE_API_URL;
     return raw?.replace(/\/+$/, '') ?? '';
-  }, [searchParams]);
+  });
 
   const buildErrorFromResponse = async (res: Response) => {
     const contentType = res.headers.get('content-type') ?? '';
@@ -59,7 +59,26 @@ export default function App() {
   };
 
   // Removed old useEffect for parsing params
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window.parent) return;
+      const data = (event.data ?? {}) as any;
+      if (data?.type !== 'HOST_CONFIG') return;
 
+      const nextCampaignId = (data.campaign ?? data.campaignId ?? null) as string | null;
+      const nextToken = (data.token ?? data.sessionToken ?? data.editorToken ?? null) as string | null;
+      const nextApiBaseUrl = (data.apiBaseUrl ?? data.apiUrl ?? null) as string | null;
+      const nextEmbedded = typeof data.embedded === 'boolean' ? data.embedded : null;
+
+      if (nextCampaignId !== null) setCampaignId(nextCampaignId);
+      if (nextToken !== null) setToken(nextToken);
+      if (nextApiBaseUrl) setApiUrl(nextApiBaseUrl.replace(/\/+$/, ''));
+      if (nextEmbedded !== null) setEmbedded(nextEmbedded);
+    };
+
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
   useEffect(() => {
     let cancelled = false;
 
@@ -70,6 +89,9 @@ export default function App() {
         return;
       }
 
+      if (embedded && !token) {
+        return;
+      }
       setLoadingTemplate(true);
       setErrorMessage(null);
 
@@ -84,6 +106,7 @@ export default function App() {
           headers,
           credentials: 'omit',
         });
+
 
         if (!res.ok) {
           if (res.status === 401 && embedded) {
@@ -122,7 +145,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [apiUrl, campaignId]);
+  }, [apiUrl, campaignId, embedded, token]);
 
   const handleSaveTemplate = async () => {
     if (!campaignId) {
