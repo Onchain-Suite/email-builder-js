@@ -28,6 +28,20 @@ export default function App() {
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const initialEmbedded = useMemo(() => searchParams.get('embedded') === 'true', [searchParams]);
 
+  const normalizeToken = useCallback((value: unknown) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^bearer\s+/i.test(trimmed)) return trimmed.replace(/^bearer\s+/i, '').trim() || null;
+    return trimmed;
+  }, []);
+
+  const normalizeNonEmptyString = useCallback((value: unknown) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }, []);
+
   const hostOriginAllowlist = useMemo(() => {
     const raw = (import.meta.env.VITE_HOST_ORIGIN_ALLOWLIST ?? import.meta.env.VITE_HOST_ORIGINS ?? '') as string;
     return raw
@@ -38,12 +52,15 @@ export default function App() {
 
   const [embedded, setEmbedded] = useState(initialEmbedded);
   const [campaignId, setCampaignId] = useState<string | null>(initialEmbedded ? null : searchParams.get('campaign'));
-  const [token, setToken] = useState<string | null>(
-    initialEmbedded
-      ? null
-      : searchParams.get('token') ?? searchParams.get('sessionToken') ?? searchParams.get('editorToken')
-  );
-  const [orgId, setOrgId] = useState<string | null>(initialEmbedded ? null : searchParams.get('orgId'));
+  const [token, setToken] = useState<string | null>(() => {
+    if (initialEmbedded) return null;
+    const raw = searchParams.get('token') ?? searchParams.get('sessionToken') ?? searchParams.get('editorToken');
+    return normalizeToken(raw);
+  });
+  const [orgId, setOrgId] = useState<string | null>(() => {
+    if (initialEmbedded) return null;
+    return normalizeNonEmptyString(searchParams.get('orgId'));
+  });
 
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -161,21 +178,21 @@ export default function App() {
       if (expectedOrigin && event.origin !== expectedOrigin) return;
 
       const nextCampaignId = (data.campaign ?? data.campaignId ?? null) as string | null;
-      const nextToken = (data.token ?? data.sessionToken ?? data.editorToken ?? null) as string | null;
-      const nextOrgId = (data.orgId ?? data.organizationId ?? data.org_id ?? null) as string | null;
+      const nextToken = normalizeToken(data.token ?? data.sessionToken ?? data.editorToken);
+      const nextOrgId = normalizeNonEmptyString(data.orgId ?? data.organizationId ?? data.org_id);
       const nextEmbedded = typeof data.embedded === 'boolean' ? data.embedded : null;
 
       setParentOrigin(event.origin);
       if (nextCampaignId !== null) setCampaignId(nextCampaignId);
-      if (nextToken !== null) setToken(nextToken);
-      if (nextOrgId !== null) setOrgId(nextOrgId);
+      if (nextToken) setToken(nextToken);
+      if (nextOrgId) setOrgId(nextOrgId);
       if (nextApiBaseUrl) setApiUrl(nextApiBaseUrl.replace(/\/+$/, ''));
       if (nextEmbedded !== null) setEmbedded(nextEmbedded);
     };
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [apiUrl, isHostOriginAllowed, parentOrigin, resolveOriginFromApiBaseUrl]);
+  }, [apiUrl, isHostOriginAllowed, normalizeNonEmptyString, normalizeToken, parentOrigin, resolveOriginFromApiBaseUrl]);
 
   useEffect(() => {
     if (!embedded) return;
@@ -237,6 +254,17 @@ export default function App() {
 
         if (!res.ok) {
           if (res.status === 401 && embedded) {
+            postToParent({
+              type: 'EMAIL_AUTH_DEBUG',
+              payload: {
+                campaignId,
+                apiBaseUrl: apiUrl,
+                hasAuthorization: Boolean(token),
+                tokenLength: token?.length ?? 0,
+                tokenDotCount: token ? token.split('.').length - 1 : 0,
+                hasOrgId: Boolean(orgId),
+              },
+            });
             postToParent({ type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } });
           }
           throw await buildErrorFromResponse(res);
@@ -316,6 +344,17 @@ export default function App() {
 
       if (!res.ok) {
         if (res.status === 401 && embedded) {
+          postToParent({
+            type: 'EMAIL_AUTH_DEBUG',
+            payload: {
+              campaignId,
+              apiBaseUrl: apiUrl,
+              hasAuthorization: Boolean(token),
+              tokenLength: token?.length ?? 0,
+              tokenDotCount: token ? token.split('.').length - 1 : 0,
+              hasOrgId: Boolean(orgId),
+            },
+          });
           postToParent({ type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } });
         }
         throw await buildErrorFromResponse(res);
