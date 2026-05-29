@@ -26,7 +26,15 @@ export default function App() {
   const marginLeftTransition = useDrawerTransition('margin-left', samplesDrawerOpen);
 
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
-  const initialEmbedded = useMemo(() => searchParams.get('embedded') === 'true', [searchParams]);
+  const isInIframe = useMemo(() => {
+    try {
+      return window.self !== window.top;
+    } catch {
+      return true;
+    }
+  }, []);
+
+  const initialEmbedded = useMemo(() => searchParams.get('embedded') === 'true' || isInIframe, [isInIframe, searchParams]);
 
   const normalizeToken = useCallback((value: unknown) => {
     if (typeof value !== 'string') return null;
@@ -51,6 +59,7 @@ export default function App() {
   }, []);
 
   const [embedded, setEmbedded] = useState(initialEmbedded);
+  const effectiveEmbedded = embedded || isInIframe;
   const [campaignId, setCampaignId] = useState<string | null>(initialEmbedded ? null : searchParams.get('campaign'));
   const [token, setToken] = useState<string | null>(() => {
     if (initialEmbedded) return null;
@@ -112,11 +121,11 @@ export default function App() {
 
   const isHostOriginAllowed = useCallback(
     (origin: string) => {
-      if (!embedded) return true;
+      if (!effectiveEmbedded) return true;
       if (hostOriginAllowlist.length === 0) return false;
       return hostOriginAllowlist.includes(origin);
     },
-    [embedded, hostOriginAllowlist]
+    [effectiveEmbedded, hostOriginAllowlist]
   );
 
   const resolveOriginFromApiBaseUrl = useCallback((apiBaseUrl: string | null) => {
@@ -130,7 +139,7 @@ export default function App() {
 
   const postToParent = useCallback(
     (message: any) => {
-      if (!embedded) return;
+      if (!effectiveEmbedded) return;
       if (parentOrigin) {
         window.parent.postMessage(message, parentOrigin);
         return;
@@ -139,7 +148,7 @@ export default function App() {
         window.parent.postMessage(message, origin);
       }
     },
-    [embedded, hostOriginAllowlist, parentOrigin]
+    [effectiveEmbedded, hostOriginAllowlist, parentOrigin]
   );
 
   const buildErrorFromResponse = useCallback(async (res: Response) => {
@@ -159,10 +168,27 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!embedded) return;
+    if (!effectiveEmbedded) return;
     postToParent({ type: 'EDITOR_READY' });
     postToParent({ type: 'REQUEST_HOST_CONFIG' });
-  }, [embedded, postToParent]);
+  }, [effectiveEmbedded, postToParent]);
+
+  useEffect(() => {
+    if (!effectiveEmbedded) return;
+    if (campaignId && token && orgId && apiUrl) return;
+    let count = 0;
+    const interval = window.setInterval(() => {
+      count += 1;
+      postToParent({ type: 'REQUEST_HOST_CONFIG' });
+      if (count >= 10) {
+        window.clearInterval(interval);
+      }
+      if (campaignId && token && orgId && apiUrl) {
+        window.clearInterval(interval);
+      }
+    }, 750);
+    return () => window.clearInterval(interval);
+  }, [apiUrl, campaignId, effectiveEmbedded, orgId, postToParent, token]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -195,7 +221,7 @@ export default function App() {
   }, [apiUrl, isHostOriginAllowed, normalizeNonEmptyString, normalizeToken, parentOrigin, resolveOriginFromApiBaseUrl]);
 
   useEffect(() => {
-    if (!embedded) return;
+    if (!effectiveEmbedded) return;
     if (hostOriginAllowlist.length === 0) {
       setErrorMessage('Missing VITE_HOST_ORIGIN_ALLOWLIST. Refusing to accept host config in embedded mode.');
       return;
@@ -213,7 +239,7 @@ export default function App() {
       return () => window.clearTimeout(t);
     }
     return;
-  }, [embedded, hostOriginAllowlist.length, orgId, token]);
+  }, [effectiveEmbedded, hostOriginAllowlist.length, orgId, token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,10 +252,10 @@ export default function App() {
         return;
       }
 
-      if (embedded && !token) {
+      if (effectiveEmbedded && !token) {
         return;
       }
-      if (embedded && !orgId) {
+      if (effectiveEmbedded && !orgId) {
         return;
       }
       setLoadingTemplate(true);
@@ -253,7 +279,7 @@ export default function App() {
         });
 
         if (!res.ok) {
-          if (res.status === 401 && embedded) {
+          if (res.status === 401 && effectiveEmbedded) {
             postToParent({
               type: 'EMAIL_AUTH_DEBUG',
               payload: {
@@ -298,12 +324,12 @@ export default function App() {
       cancelled = true;
       controller.abort();
     };
-  }, [apiUrl, buildErrorFromResponse, campaignId, embedded, orgId, postToParent, token]);
+  }, [apiUrl, buildErrorFromResponse, campaignId, effectiveEmbedded, orgId, postToParent, token]);
 
   const handleSaveTemplate = async () => {
     if (!campaignId) {
       setErrorMessage(
-        embedded
+        effectiveEmbedded
           ? 'Missing campaignId. Host app must provide campaign via HOST_CONFIG.'
           : 'Missing campaign query param; cannot save template.'
       );
@@ -313,11 +339,11 @@ export default function App() {
       setErrorMessage('Missing apiBaseUrl; cannot save template.');
       return;
     }
-    if (embedded && !token) {
+    if (effectiveEmbedded && !token) {
       setErrorMessage('Missing token. Host app must provide token via HOST_CONFIG.');
       return;
     }
-    if (embedded && !orgId) {
+    if (effectiveEmbedded && !orgId) {
       setErrorMessage('Missing orgId. Host app must provide orgId via HOST_CONFIG.');
       return;
     }
@@ -343,7 +369,7 @@ export default function App() {
       });
 
       if (!res.ok) {
-        if (res.status === 401 && embedded) {
+        if (res.status === 401 && effectiveEmbedded) {
           postToParent({
             type: 'EMAIL_AUTH_DEBUG',
             payload: {
@@ -362,7 +388,7 @@ export default function App() {
 
       setSuccessMessage('Template saved.');
 
-      if (embedded) {
+      if (effectiveEmbedded) {
         postToParent({ type: 'EMAIL_SAVED', payload: { campaignId, document } });
       }
     } catch (e) {
@@ -376,7 +402,7 @@ export default function App() {
   return (
     <VariablesProvider>
       <PostMessageListener />
-      {!embedded ? <TopBar /> : null}
+      {!effectiveEmbedded ? <TopBar /> : null}
       <SamplesDrawer />
 
       <Stack
