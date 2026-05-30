@@ -50,6 +50,33 @@ export default function App() {
     return trimmed ? trimmed : null;
   }, []);
 
+  const normalizeApiBaseUrl = useCallback((value: unknown) => {
+    if (typeof value !== 'string') return null;
+    let s = value.trim();
+    if (!s) return null;
+    s = s.replace(/^`+/, '').replace(/`+$/, '').trim();
+    s = s.replace(/^"+/, '').replace(/"+$/, '').trim();
+    s = s.replace(/^'+/, '').replace(/'+$/, '').trim();
+    return s.replace(/\/+$/, '') || null;
+  }, []);
+
+  const normalizeCampaignId = useCallback(
+    (value: unknown) => {
+      const direct = normalizeNonEmptyString(value);
+      if (direct) return direct;
+      if (typeof value !== 'object' || value === null) return null;
+      const v: any = value;
+      return (
+        normalizeNonEmptyString(v.id) ??
+        normalizeNonEmptyString(v.campaignId) ??
+        normalizeNonEmptyString(v.campaign_id) ??
+        normalizeNonEmptyString(v.uuid) ??
+        null
+      );
+    },
+    [normalizeNonEmptyString]
+  );
+
   const hostOriginAllowlist = useMemo(() => {
     const raw = (import.meta.env.VITE_HOST_ORIGIN_ALLOWLIST ?? import.meta.env.VITE_HOST_ORIGINS ?? '') as string;
     return raw
@@ -60,7 +87,10 @@ export default function App() {
 
   const [embedded, setEmbedded] = useState(initialEmbedded);
   const effectiveEmbedded = embedded || isInIframe;
-  const [campaignId, setCampaignId] = useState<string | null>(initialEmbedded ? null : searchParams.get('campaign'));
+  const [campaignId, setCampaignId] = useState<string | null>(() => {
+    if (initialEmbedded) return null;
+    return normalizeCampaignId(searchParams.get('campaign'));
+  });
   const [token, setToken] = useState<string | null>(() => {
     if (initialEmbedded) return null;
     const raw = searchParams.get('token') ?? searchParams.get('sessionToken') ?? searchParams.get('editorToken');
@@ -77,10 +107,9 @@ export default function App() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [apiUrl, setApiUrl] = useState(() => {
-    const raw = initialEmbedded
-      ? ''
-      : searchParams.get('apiBaseUrl') ?? searchParams.get('host') ?? import.meta.env.VITE_API_URL;
-    return raw?.replace(/\/+$/, '') ?? '';
+    if (initialEmbedded) return '';
+    const raw = searchParams.get('apiBaseUrl') ?? searchParams.get('host') ?? import.meta.env.VITE_API_URL;
+    return normalizeApiBaseUrl(raw) ?? '';
   });
 
   const [parentOrigin, setParentOrigin] = useState<string | null>(() => {
@@ -190,9 +219,9 @@ export default function App() {
       const data = (event.data ?? {}) as any;
       if (data?.type !== 'HOST_CONFIG') return;
 
-      const nextApiBaseUrl = (data.apiBaseUrl ?? data.apiUrl ?? null) as string | null;
+      const nextApiBaseUrl = normalizeApiBaseUrl(data.apiBaseUrl ?? data.apiUrl);
 
-      const nextCampaignId = (data.campaign ?? data.campaignId ?? null) as string | null;
+      const nextCampaignId = normalizeCampaignId(data.campaignId ?? data.campaign ?? data.campaign?.id);
       const nextToken = normalizeToken(data.token ?? data.sessionToken ?? data.editorToken);
       const nextOrgId = normalizeNonEmptyString(
         data.orgId ??
@@ -205,16 +234,16 @@ export default function App() {
       const nextEmbedded = typeof data.embedded === 'boolean' ? data.embedded : null;
 
       setParentOrigin(event.origin);
-      if (nextCampaignId !== null) setCampaignId(nextCampaignId);
+      if (nextCampaignId) setCampaignId(nextCampaignId);
       if (nextToken) setToken(nextToken);
       if (nextOrgId) setOrgId(nextOrgId);
-      if (nextApiBaseUrl) setApiUrl(nextApiBaseUrl.replace(/\/+$/, ''));
+      if (nextApiBaseUrl) setApiUrl(nextApiBaseUrl);
       if (nextEmbedded !== null) setEmbedded(nextEmbedded);
     };
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [isHostOriginAllowed, normalizeNonEmptyString, normalizeToken, parentOrigin]);
+  }, [isHostOriginAllowed, normalizeApiBaseUrl, normalizeCampaignId, normalizeNonEmptyString, normalizeToken, parentOrigin]);
 
   useEffect(() => {
     if (!effectiveEmbedded) return;
