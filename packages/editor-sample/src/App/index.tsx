@@ -128,15 +128,6 @@ export default function App() {
     [effectiveEmbedded, hostOriginAllowlist]
   );
 
-  const resolveOriginFromApiBaseUrl = useCallback((apiBaseUrl: string | null) => {
-    if (!apiBaseUrl) return null;
-    try {
-      return new URL(apiBaseUrl).origin;
-    } catch {
-      return null;
-    }
-  }, []);
-
   const postToParent = useCallback(
     (message: any) => {
       if (!effectiveEmbedded) return;
@@ -200,12 +191,17 @@ export default function App() {
       if (data?.type !== 'HOST_CONFIG') return;
 
       const nextApiBaseUrl = (data.apiBaseUrl ?? data.apiUrl ?? null) as string | null;
-      const expectedOrigin = resolveOriginFromApiBaseUrl(nextApiBaseUrl) ?? resolveOriginFromApiBaseUrl(apiUrl);
-      if (expectedOrigin && event.origin !== expectedOrigin) return;
 
       const nextCampaignId = (data.campaign ?? data.campaignId ?? null) as string | null;
       const nextToken = normalizeToken(data.token ?? data.sessionToken ?? data.editorToken);
-      const nextOrgId = normalizeNonEmptyString(data.orgId ?? data.organizationId ?? data.org_id);
+      const nextOrgId = normalizeNonEmptyString(
+        data.orgId ??
+          data.organizationId ??
+          data.org_id ??
+          data.campaign?.orgId ??
+          data.campaign?.organizationId ??
+          data.campaign?.org_id
+      );
       const nextEmbedded = typeof data.embedded === 'boolean' ? data.embedded : null;
 
       setParentOrigin(event.origin);
@@ -218,7 +214,7 @@ export default function App() {
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [apiUrl, isHostOriginAllowed, normalizeNonEmptyString, normalizeToken, parentOrigin, resolveOriginFromApiBaseUrl]);
+  }, [isHostOriginAllowed, normalizeNonEmptyString, normalizeToken, parentOrigin]);
 
   useEffect(() => {
     if (!effectiveEmbedded) return;
