@@ -425,7 +425,7 @@ export default function App() {
   };
 
   return (
-    <VariablesProvider>
+    <VariablesProvider apiBaseUrl={apiUrl} token={token} orgId={orgId} embedded={effectiveEmbedded}>
       <PostMessageListener />
       {!effectiveEmbedded ? <TopBar /> : null}
       <SamplesDrawer />
