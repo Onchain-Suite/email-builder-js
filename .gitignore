@@ -1,6 +1,8 @@
 # dependencies
 node_modules
 
+docs
+
 # misc
 .esbuild
 .DS_Store
