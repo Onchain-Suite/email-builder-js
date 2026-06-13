@@ -1,50 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-import { ArrowLeft, ChevronDown } from 'lucide-react';
-import { Box, Button, Chip, IconButton, Menu, MenuItem, Snackbar, Stack, Tooltip } from '@mui/material';
-
-import { renderToStaticMarkup } from '@usewaypoint/email-builder';
-import { setSidebarTab, toggleSamplesDrawerOpen, useDocument } from '../../documents/editor/EditorContext';
+import { ArrowLeft } from 'lucide-react';
+import { Box, Button, Chip, IconButton, Stack, Tooltip } from '@mui/material';
 
 export default function TopBar() {
-  const [menuEl, setMenuEl] = useState<null | HTMLElement>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  
-  const document = useDocument();
-
-  const open = Boolean(menuEl);
-
-  const handleOpenMenu: React.MouseEventHandler<HTMLButtonElement> = (e) => {
-    if (open) {
-      setMenuEl(null);
-    } else {
-      setMenuEl(e.currentTarget);
-    }
-  };
-  const handleCloseMenu = () => setMenuEl(null);
-
-  const handleSaveTemplate = () => {
-    // Generate HTML from the document
-    const html = renderToStaticMarkup(document, { rootBlockId: 'root' });
-
-    // Send data back to host app
-    window.parent.postMessage({
-        type: 'EMAIL_BUILDER_SAVE',
-        data: {
-            json: document,
-            html: html,
-        }
-    }, '*');
-
-    setMessage('Template saved & sent to host app');
-    handleCloseMenu();
-  };
-  const handleChangeTemplate = () => {
-    setSidebarTab('history');
-    toggleSamplesDrawerOpen();
-    handleCloseMenu();
-  };
-  const handleCloseMessage = () => setMessage(null);
 
   return (
     <Box
@@ -82,28 +41,9 @@ export default function TopBar() {
         </Stack>
 
         <Stack direction="row" alignItems="center" spacing={2}>
-          <Button
-            variant="outlined"
-            endIcon={<ChevronDown size={16} />}
-            onClick={handleOpenMenu}
-            sx={{ fontWeight: 500 }}
-          >
-            Manage Template
-          </Button>
-          <Menu anchorEl={menuEl} open={open} onClose={handleCloseMenu}>
-            <MenuItem onClick={handleSaveTemplate}>Save as template</MenuItem>
-            <MenuItem onClick={handleChangeTemplate}>Change template</MenuItem>
-          </Menu>
           <Button variant="contained" sx={{ fontWeight: 600 }}>Next</Button>
         </Stack>
       </Stack>
-
-      <Snackbar
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        open={message !== null}
-        onClose={handleCloseMessage}
-        message={message}
-      />
     </Box>
   );
 }

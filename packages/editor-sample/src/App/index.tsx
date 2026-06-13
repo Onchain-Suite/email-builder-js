@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Alert, Backdrop, Button, CircularProgress, Snackbar, Stack, useTheme } from '@mui/material';
+import { renderToStaticMarkup } from '@usewaypoint/email-builder';
 
 import { resetDocument, useDocument, useSamplesDrawerOpen } from '../documents/editor/EditorContext';
 import { VariablesProvider } from '../documents/editor/VariablesContext';
@@ -8,6 +9,45 @@ import { VariablesProvider } from '../documents/editor/VariablesContext';
 import SamplesDrawer, { SAMPLES_DRAWER_WIDTH } from './SamplesDrawer';
 import TopBar from './TopBar';
 import TemplatePanel from './TemplatePanel';
+
+function renderTextVersionFromHtml(html: string) {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|tr|table|section|article|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\r/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+function buildEmailContent(document: any) {
+  const html = renderToStaticMarkup(document, { rootBlockId: 'root' }).trim();
+  const textVersion = renderTextVersionFromHtml(html);
+
+  if (!html && !textVersion) {
+    throw new Error('Unable to generate email HTML or text from the current template.');
+  }
+
+  return {
+    html,
+    json: document,
+    textVersion,
+  };
+}
+
+function getTemplateStorageKey(campaignId: string) {
+  return `email-builder.saved-template.${campaignId}`;
+}
 
 function useDrawerTransition(cssProperty: 'margin-left' | 'margin-right', open: boolean) {
   const { transitions } = useTheme();
@@ -105,6 +145,8 @@ export default function App() {
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [savedReusableTemplateId, setSavedReusableTemplateId] = useState<string | null>(null);
+  const [savedReusableTemplateName, setSavedReusableTemplateName] = useState<string | null>(null);
 
   const [apiUrl, setApiUrl] = useState(() => {
     if (initialEmbedded) return '';
@@ -115,13 +157,13 @@ export default function App() {
   const [parentOrigin, setParentOrigin] = useState<string | null>(() => {
     const fromQuery = searchParams.get('parentOrigin');
     if (fromQuery) {
-      if (hostOriginAllowlist.length > 0 && !hostOriginAllowlist.includes(fromQuery)) return null;
+      if (hostOriginAllowlist.length > 0 && hostOriginAllowlist.indexOf(fromQuery) === -1) return null;
       return fromQuery;
     }
     try {
       if (!window.document.referrer) return null;
       const referrerOrigin = new URL(window.document.referrer).origin;
-      if (hostOriginAllowlist.length > 0 && !hostOriginAllowlist.includes(referrerOrigin)) return null;
+      if (hostOriginAllowlist.length > 0 && hostOriginAllowlist.indexOf(referrerOrigin) === -1) return null;
       return referrerOrigin;
     } catch {
       return null;
@@ -131,6 +173,30 @@ export default function App() {
   useEffect(() => {
     (window as any).__EMAIL_BUILDER_PARENT_ORIGIN__ = parentOrigin;
   }, [parentOrigin]);
+
+  useEffect(() => {
+    if (!campaignId) {
+      setSavedReusableTemplateId(null);
+      setSavedReusableTemplateName(null);
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(getTemplateStorageKey(campaignId));
+      if (!raw) {
+        setSavedReusableTemplateId(null);
+        setSavedReusableTemplateName(null);
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as { id?: unknown; name?: unknown };
+      setSavedReusableTemplateId(normalizeNonEmptyString(parsed.id));
+      setSavedReusableTemplateName(normalizeNonEmptyString(parsed.name));
+    } catch {
+      setSavedReusableTemplateId(null);
+      setSavedReusableTemplateName(null);
+    }
+  }, [campaignId, normalizeNonEmptyString]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -152,7 +218,7 @@ export default function App() {
     (origin: string) => {
       if (!effectiveEmbedded) return true;
       if (hostOriginAllowlist.length === 0) return false;
-      return hostOriginAllowlist.includes(origin);
+      return hostOriginAllowlist.indexOf(origin) !== -1;
     },
     [effectiveEmbedded, hostOriginAllowlist]
   );
@@ -266,6 +332,8 @@ export default function App() {
     return;
   }, [effectiveEmbedded, hostOriginAllowlist.length, orgId, token]);
 
+  const requestCredentials: RequestCredentials = effectiveEmbedded ? 'omit' : 'include';
+
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -326,7 +394,7 @@ export default function App() {
           throw new Error(data?.error?.message ?? data?.message ?? 'Failed to load template.');
         }
         const payload = (data?.data ?? data?.payload ?? data) as any;
-        const fetchedDocument = (payload?.document ?? payload?.emailConfig ?? payload) as any;
+        const fetchedDocument = (payload?.document ?? payload?.json ?? payload?.emailConfig ?? payload) as any;
 
         if (!cancelled && fetchedDocument && typeof fetchedDocument === 'object' && fetchedDocument.root) {
           resetDocument(fetchedDocument);
@@ -375,8 +443,11 @@ export default function App() {
 
     setSavingTemplate(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
+      const { html, textVersion, json } = buildEmailContent(document);
+
       const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -389,8 +460,12 @@ export default function App() {
       const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify(document),
-        credentials: 'omit',
+        body: JSON.stringify({
+          html,
+          json,
+          textVersion,
+        }),
+        credentials: requestCredentials,
       });
 
       if (!res.ok) {
@@ -414,8 +489,88 @@ export default function App() {
       setSuccessMessage('Template saved.');
 
       if (effectiveEmbedded) {
-        postToParent({ type: 'EMAIL_SAVED', payload: { campaignId, document } });
+        postToParent({ type: 'EMAIL_SAVED', payload: { campaignId, document: json, html, textVersion } });
       }
+
+      if (!orgId) {
+        setSuccessMessage('Campaign saved. Reusable template skipped because orgId is missing.');
+        return;
+      }
+
+      const templateHeaders: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
+      templateHeaders['x-org-id'] = orgId;
+      if (token) {
+        templateHeaders['Authorization'] = `Bearer ${token}`;
+        templateHeaders['x-editor-token'] = token;
+      }
+
+      let reusableTemplateId = savedReusableTemplateId;
+      let reusableTemplateName = savedReusableTemplateName;
+
+      if (!reusableTemplateId) {
+        const defaultTemplateName = savedReusableTemplateName ?? `Campaign ${campaignId} Template`;
+        const requestedName = window.prompt('Reusable template name', defaultTemplateName)?.trim() ?? '';
+
+        if (!requestedName) {
+          setSuccessMessage('Campaign saved. Reusable template was skipped.');
+          return;
+        }
+
+        const createRes = await fetch(`${apiUrl}/templates`, {
+          method: 'POST',
+          headers: templateHeaders,
+          body: JSON.stringify({
+            name: requestedName,
+            content: { html, json, textVersion },
+          }),
+          credentials: requestCredentials,
+        });
+
+        if (!createRes.ok) {
+          throw new Error(`Campaign saved, but reusable template creation failed: ${(await buildErrorFromResponse(createRes)).message}`);
+        }
+
+        const createData = (await createRes.json().catch(() => null)) as any;
+        const createPayload = (createData?.data ?? createData?.payload ?? createData) as any;
+        reusableTemplateId =
+          normalizeNonEmptyString(createPayload?.id) ??
+          normalizeNonEmptyString(createPayload?.templateId) ??
+          normalizeNonEmptyString(createPayload?.template?.id);
+        reusableTemplateName =
+          normalizeNonEmptyString(createPayload?.name) ??
+          normalizeNonEmptyString(createPayload?.template?.name) ??
+          requestedName;
+
+        if (!reusableTemplateId) {
+          throw new Error('Campaign saved, but reusable template creation did not return a template id.');
+        }
+      } else {
+        const updateRes = await fetch(`${apiUrl}/templates/${encodeURIComponent(reusableTemplateId)}`, {
+          method: 'PUT',
+          headers: templateHeaders,
+          body: JSON.stringify({
+            name: reusableTemplateName ?? undefined,
+            content: { html, json, textVersion },
+          }),
+          credentials: requestCredentials,
+        });
+
+        if (!updateRes.ok) {
+          throw new Error(`Campaign saved, but reusable template update failed: ${(await buildErrorFromResponse(updateRes)).message}`);
+        }
+      }
+
+      window.localStorage.setItem(
+        getTemplateStorageKey(campaignId),
+        JSON.stringify({ id: reusableTemplateId, name: reusableTemplateName })
+      );
+      setSavedReusableTemplateId(reusableTemplateId);
+      setSavedReusableTemplateName(reusableTemplateName);
+      setSuccessMessage(
+        reusableTemplateName
+          ? `Campaign and reusable template "${reusableTemplateName}" saved.`
+          : 'Campaign and reusable template saved.'
+      );
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to save template.';
       setErrorMessage(message);
