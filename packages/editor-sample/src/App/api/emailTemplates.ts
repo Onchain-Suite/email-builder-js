@@ -23,10 +23,11 @@ async function apiGet(path: string): Promise<unknown> {
   }
   const json: unknown = await response.json().catch(() => null);
   if (!response.ok) {
+    const serverMessage = findErrorMessage(json);
     if (response.status === 401 || response.status === 403) {
-      throw new Error('Not authorized. Please sign in to your Onchain Suite account.');
+      throw new Error(serverMessage ?? 'Not authorized. Please sign in to your Onchain Suite account.');
     }
-    throw new Error(findErrorMessage(json) ?? `Request failed (${response.status}).`);
+    throw new Error(serverMessage ?? `Request failed (${response.status}).`);
   }
   return json;
 }
