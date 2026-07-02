@@ -9,6 +9,7 @@ import { Stack, ToggleButton } from '@mui/material';
 import { ImageProps, ImagePropsSchema } from '@usewaypoint/block-image';
 
 import BaseSidebarPanel from './helpers/BaseSidebarPanel';
+import ImageUploadInput from './helpers/inputs/ImageUploadInput';
 import RadioGroupInput from './helpers/inputs/RadioGroupInput';
 import TextDimensionInput from './helpers/inputs/TextDimensionInput';
 import TextInput from './helpers/inputs/TextInput';
@@ -33,7 +34,7 @@ export default function ImageSidebarPanel({ data, setData }: ImageSidebarPanelPr
 
   return (
     <BaseSidebarPanel title="Image block">
-      <TextInput
+      <ImageUploadInput
         label="Source URL"
         defaultValue={data.props?.url ?? ''}
         onChange={(v) => {

@@ -5,6 +5,7 @@ import { ToggleButton } from '@mui/material';
 import { AvatarProps, AvatarPropsDefaults, AvatarPropsSchema } from '@usewaypoint/block-avatar';
 
 import BaseSidebarPanel from './helpers/BaseSidebarPanel';
+import ImageUploadInput from './helpers/inputs/ImageUploadInput';
 import RadioGroupInput from './helpers/inputs/RadioGroupInput';
 import SliderInput from './helpers/inputs/SliderInput';
 import TextInput from './helpers/inputs/TextInput';
@@ -56,7 +57,7 @@ export default function AvatarSidebarPanel({ data, setData }: AvatarSidebarPanel
         <ToggleButton value="square">Square</ToggleButton>
         <ToggleButton value="rounded">Rounded</ToggleButton>
       </RadioGroupInput>
-      <TextInput
+      <ImageUploadInput
         label="Image URL"
         defaultValue={imageUrl}
         onChange={(imageUrl) => {

@@ -3,6 +3,8 @@ node_modules
 
 /docs/
 
+API_ENDPOINTS.md
+
 # misc
 .esbuild
 .DS_Store

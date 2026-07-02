@@ -1,22 +1,24 @@
 {
   "compilerOptions": {
-    "target": "es2015",
+    "target": "es2017",
     "module": "esnext",
-  
+
     "moduleResolution": "node",
     "jsx": "react",
     "strict": true,
-    "sourceMap": true,
     "allowJs": true,
     "esModuleInterop": true,
 
     "skipLibCheck": true,
-    "declarationMap": true,
-    "declaration": true,
     "noUnusedLocals": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+
+    // Vite (esbuild) does the transpiling; tsc is typecheck-only. This
+    // prevents compiled .js/.d.ts artifacts from being emitted into src/,
+    // which previously shadowed the .tsx sources in the dev server.
+    "noEmit": true
   },
   "exclude": ["dist"]
 }
