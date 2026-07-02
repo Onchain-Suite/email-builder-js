@@ -66,7 +66,7 @@ export async function uploadImage(file: File): Promise<string> {
       method: 'POST',
       body: formData,
       credentials: apiCredentials(),
-      headers: authHeaders(),
+      headers: authHeaders({ orgScoped: true }), // assets are org-scoped
     });
   } catch {
     throw new Error('Upload failed: could not reach the server. Check your connection and try again.');
