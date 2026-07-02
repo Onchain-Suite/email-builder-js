@@ -1,6 +1,6 @@
 import { EditorConfigurationSchema, TEditorConfiguration } from '../../documents/editor/core';
 
-import { API_BASE_URL, authHeaders, findErrorMessage } from './config';
+import { apiCredentials, authHeaders, findErrorMessage, getApiBaseUrl } from './config';
 
 export type EmailTemplateSummary = {
   id: string;
@@ -13,9 +13,9 @@ export type EmailTemplateSummary = {
 async function apiGet(path: string): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
       method: 'GET',
-      credentials: 'include',
+      credentials: apiCredentials(),
       headers: { Accept: 'application/json', ...authHeaders() },
     });
   } catch {

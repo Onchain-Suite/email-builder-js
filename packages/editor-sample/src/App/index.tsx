@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from '@usewaypoint/email-builder';
 import { resetDocument, useDocument, useSamplesDrawerOpen } from '../documents/editor/EditorContext';
 import { VariablesProvider } from '../documents/editor/VariablesContext';
 
+import { setApiSession } from './api/session';
 import SamplesDrawer, { SAMPLES_DRAWER_WIDTH } from './SamplesDrawer';
 import TopBar from './TopBar';
 import TemplatePanel from './TemplatePanel';
@@ -333,6 +334,12 @@ export default function App() {
   }, [effectiveEmbedded, hostOriginAllowlist.length, orgId, token]);
 
   const requestCredentials: RequestCredentials = effectiveEmbedded ? 'omit' : 'include';
+
+  // Share host-provided credentials with the API modules (asset uploads,
+  // template history panel) so they authenticate like the campaign flow.
+  useEffect(() => {
+    setApiSession({ apiUrl: apiUrl || null, token, orgId });
+  }, [apiUrl, token, orgId]);
 
   useEffect(() => {
     let cancelled = false;

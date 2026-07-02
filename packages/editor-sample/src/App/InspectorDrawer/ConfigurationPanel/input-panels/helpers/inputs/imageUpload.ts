@@ -14,9 +14,11 @@
  *                            default the browser session cookie is used
  *                            (`credentials: "include"`).
  */
-import { API_BASE_URL, authHeaders, findErrorMessage } from '../../../../../api/config';
+import { apiCredentials, authHeaders, findErrorMessage, getApiBaseUrl } from '../../../../../api/config';
 
-export const IMAGE_UPLOAD_ENDPOINT: string = import.meta.env.VITE_IMAGE_UPLOAD_URL ?? `${API_BASE_URL}/assets`;
+export function getImageUploadEndpoint(): string {
+  return import.meta.env.VITE_IMAGE_UPLOAD_URL ?? `${getApiBaseUrl()}/assets`;
+}
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']);
@@ -60,10 +62,10 @@ export async function uploadImage(file: File): Promise<string> {
 
   let response: Response;
   try {
-    response = await fetch(IMAGE_UPLOAD_ENDPOINT, {
+    response = await fetch(getImageUploadEndpoint(), {
       method: 'POST',
       body: formData,
-      credentials: 'include',
+      credentials: apiCredentials(),
       headers: authHeaders(),
     });
   } catch {

@@ -16,6 +16,7 @@ import {
 
 import { resetDocument } from '../../../documents/editor/EditorContext';
 import { EmailTemplateSummary, fetchTemplateDocument, listTemplates } from '../../api/emailTemplates';
+import { useApiSession } from '../../api/session';
 
 function formatDate(iso: string | null): string | null {
   if (!iso) {
@@ -35,13 +36,17 @@ type SectionState =
 
 function useTemplates(access: 'private' | 'public'): [SectionState, () => void] {
   const [state, setState] = useState<SectionState>({ status: 'loading' });
+  // Host credentials can arrive after mount (HOST_CONFIG postMessage);
+  // re-fetch whenever they change.
+  const { token, apiUrl, orgId } = useApiSession();
 
   const load = useCallback(() => {
     setState({ status: 'loading' });
     listTemplates(access)
       .then((templates) => setState({ status: 'ready', templates }))
       .catch((e) => setState({ status: 'error', message: e instanceof Error ? e.message : 'Failed to load.' }));
-  }, [access]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access, token, apiUrl, orgId]);
 
   useEffect(load, [load]);
   return [state, load];
