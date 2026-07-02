@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 import { FileUploadOutlined } from '@mui/icons-material';
 import { Button, CircularProgress, Stack, TextField } from '@mui/material';
 
-import { IMAGE_UPLOAD_ENDPOINT, uploadImage } from './imageUpload';
+import { getImageUploadEndpoint, uploadImage } from './imageUpload';
 
 type Props = {
   label: string;
@@ -68,7 +68,7 @@ export default function ImageUploadInput({ label, defaultValue, helperText, onCh
           disabled={uploading}
           startIcon={uploading ? <CircularProgress size={14} /> : <FileUploadOutlined fontSize="small" />}
           onClick={() => fileInputRef.current?.click()}
-          title={`Uploads to your asset library (${IMAGE_UPLOAD_ENDPOINT})`}
+          title={`Uploads to your asset library (${getImageUploadEndpoint()})`}
         >
           {uploading ? 'Uploading…' : 'Upload image'}
         </Button>
