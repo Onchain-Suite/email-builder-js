@@ -3,7 +3,7 @@ node_modules
 
 /docs/
 
-API_ENDPOINTS.md
+/API_ENDPOINTS.md
 
 # misc
 .esbuild
