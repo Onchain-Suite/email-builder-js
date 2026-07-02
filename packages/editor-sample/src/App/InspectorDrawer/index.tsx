@@ -5,6 +5,7 @@ import { Box, Drawer, Tab, Tabs } from '@mui/material';
 import { setSidebarTab, useInspectorDrawerOpen, useSelectedSidebarTab } from '../../documents/editor/EditorContext';
 
 import ConfigurationPanel from './ConfigurationPanel';
+import HistoryPanel from './HistoryPanel';
 import StylesPanel from './StylesPanel';
 
 export const INSPECTOR_DRAWER_WIDTH = 320;
@@ -20,7 +21,7 @@ export default function InspectorDrawer() {
       case 'styles':
         return <StylesPanel />;
       case 'history':
-        return null;
+        return <HistoryPanel />;
     }
     return null;
   };
