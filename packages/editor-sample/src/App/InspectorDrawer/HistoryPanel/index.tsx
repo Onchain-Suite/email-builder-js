@@ -146,7 +146,7 @@ export default function HistoryPanel() {
     setLoadingId(template.id);
     setOpenError(null);
     try {
-      const document = await fetchTemplateDocument(template.id);
+      const document = await fetchTemplateDocument(template);
       resetDocument(document);
     } catch (e) {
       setOpenError(e instanceof Error ? e.message : 'Could not open the template.');
