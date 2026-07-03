@@ -18,7 +18,6 @@ import {
 import { renderToStaticMarkup } from '@usewaypoint/email-builder';
 
 import { resetDocument, useDocument, useSamplesDrawerOpen } from '../documents/editor/EditorContext';
-import { recordSnapshot } from '../documents/editor/localHistory';
 import { VariablesProvider } from '../documents/editor/VariablesContext';
 
 import makeResponsiveHtml from './makeResponsiveHtml';
@@ -368,12 +367,6 @@ export default function App() {
   useEffect(() => {
     setApiSession({ apiUrl: apiUrl || null, token, authToken, orgId, campaignId });
   }, [apiUrl, token, authToken, orgId, campaignId]);
-
-  // Autosave: record a debounced local snapshot of every document change so
-  // recent work is always recoverable from the History tab.
-  useEffect(() => {
-    recordSnapshot(document);
-  }, [document]);
 
   // Backend autosave: persist drafts to POST /campaigns/{id}/editor/saved
   // (accepts editor-token auth). Best-effort and deduped so loading a

@@ -2,19 +2,20 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import {
   AddOutlined,
-  DeleteOutlineOutlined,
   DeleteSweepOutlined,
+  ExpandMoreOutlined,
   HistoryOutlined,
   PublicOutlined,
   RefreshOutlined,
-  RestoreOutlined,
 } from '@mui/icons-material';
 import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -28,7 +29,6 @@ import {
 } from '@mui/material';
 
 import { resetDocument } from '../../../documents/editor/EditorContext';
-import { deleteSnapshot, useDesignSnapshots } from '../../../documents/editor/localHistory';
 import EMPTY_EMAIL_MESSAGE from '../../../getConfiguration/sample/empty-email-message';
 import {
   deleteTemplates,
@@ -50,13 +50,6 @@ function formatDate(iso: string | null): string | null {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  const sameDay = new Date().toDateString() === date.toDateString();
-  return sameDay
-    ? date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-    : date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
 
 export type TConfirmRequest = {
   title: string;
@@ -87,62 +80,6 @@ function ConfirmDialog({ request, onClose }: { request: TConfirmRequest | null; 
         </Button>
       </DialogActions>
     </Dialog>
-  );
-}
-
-function RecentWorkSection({ requestConfirm }: { requestConfirm: (request: TConfirmRequest) => void }) {
-  const snapshots = useDesignSnapshots();
-
-  return (
-    <Box>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, pt: 2, pb: 0.5 }}>
-        <RestoreOutlined fontSize="small" sx={{ color: 'text.secondary' }} />
-        <Typography variant="overline" color="text.secondary" sx={{ flexGrow: 1 }}>
-          Recent work (this device)
-        </Typography>
-      </Stack>
-      {snapshots.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>
-          Your changes are autosaved here as you edit.
-        </Typography>
-      ) : (
-        <List dense disablePadding>
-          {snapshots.map((snapshot) => (
-            <ListItemButton
-              key={snapshot.id}
-              onClick={() =>
-                requestConfirm({
-                  title: 'Restore this version?',
-                  message: `"${snapshot.label}" will replace what's currently on the canvas. Your current work stays available in Recent work.`,
-                  confirmLabel: 'Restore',
-                  action: () => resetDocument(snapshot.document),
-                })
-              }
-            >
-              <ListItemText
-                primary={
-                  <Typography variant="body2" noWrap>
-                    {snapshot.label}
-                  </Typography>
-                }
-                secondary={formatTime(snapshot.savedAt)}
-              />
-              <IconButton
-                size="small"
-                edge="end"
-                title="Delete snapshot"
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  deleteSnapshot(snapshot.id);
-                }}
-              >
-                <DeleteOutlineOutlined fontSize="inherit" />
-              </IconButton>
-            </ListItemButton>
-          ))}
-        </List>
-      )}
-    </Box>
   );
 }
 
@@ -183,6 +120,7 @@ function TemplateSection({ title, icon, emptyMessage, access, loadingId, onOpen,
   const [state, reload] = useTemplates(access);
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(true);
 
   const handleCleanup = async () => {
     if (!requestConfirm) return;
@@ -276,26 +214,71 @@ function TemplateSection({ title, icon, emptyMessage, access, loadingId, onOpen,
 
   return (
     <Box>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, pt: 2, pb: 0.5 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{
+          px: 2,
+          pt: 1.5,
+          pb: 0.5,
+          cursor: 'pointer',
+          userSelect: 'none',
+          '&:hover .section-chevron': { color: 'text.primary' },
+        }}
+        onClick={() => setExpanded((v) => !v)}
+      >
         {icon}
         <Typography variant="overline" color="text.secondary" sx={{ flexGrow: 1 }}>
           {title}
         </Typography>
-        {access === 'private' && requestConfirm && (
-          <IconButton size="small" onClick={() => void handleCleanup()} disabled={cleanupBusy} title="Remove duplicates (keeps the most recent of each name)">
+        {expanded && access === 'private' && requestConfirm && (
+          <IconButton
+            size="small"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              void handleCleanup();
+            }}
+            disabled={cleanupBusy}
+            title="Remove duplicates (keeps the most recent of each name)"
+          >
             {cleanupBusy ? <CircularProgress size={14} /> : <DeleteSweepOutlined fontSize="inherit" />}
           </IconButton>
         )}
-        <IconButton size="small" onClick={reload} title="Refresh">
-          <RefreshOutlined fontSize="inherit" />
-        </IconButton>
+        {expanded && (
+          <IconButton
+            size="small"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              reload();
+            }}
+            title="Refresh"
+          >
+            <RefreshOutlined fontSize="inherit" />
+          </IconButton>
+        )}
+        <ButtonBase
+          className="section-chevron"
+          aria-label={expanded ? 'Collapse section' : 'Expand section'}
+          sx={{
+            color: 'text.secondary',
+            borderRadius: 1,
+            display: 'flex',
+            transition: 'transform 200ms ease, color 150ms ease',
+            transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+          }}
+        >
+          <ExpandMoreOutlined fontSize="small" />
+        </ButtonBase>
       </Stack>
-      {cleanupMessage && (
-        <Alert severity="info" onClose={() => setCleanupMessage(null)} sx={{ mx: 1, mb: 1 }}>
-          {cleanupMessage}
-        </Alert>
-      )}
-      {body}
+      <Collapse in={expanded} timeout={200} unmountOnExit>
+        {cleanupMessage && (
+          <Alert severity="info" onClose={() => setCleanupMessage(null)} sx={{ mx: 1, mb: 1 }}>
+            {cleanupMessage}
+          </Alert>
+        )}
+        {body}
+      </Collapse>
     </Box>
   );
 }
@@ -321,7 +304,7 @@ export default function HistoryPanel() {
   const handleOpen = (template: EmailTemplateSummary) => {
     setConfirmRequest({
       title: `Open "${template.name}"?`,
-      message: 'It will replace what’s currently on the canvas. Your current work stays available in Recent work.',
+      message: 'It will replace what’s currently on the canvas. Unsaved changes will be lost.',
       confirmLabel: 'Open template',
       action: () => void openTemplate(template),
     });
@@ -344,7 +327,7 @@ export default function HistoryPanel() {
           onClick={() =>
             setConfirmRequest({
               title: 'Start a new template?',
-              message: 'You’ll get a blank canvas. Your current work stays available in Recent work.',
+              message: 'You’ll get a blank canvas. Unsaved changes to the current design will be lost.',
               confirmLabel: 'New template',
               action: () => resetDocument(EMPTY_EMAIL_MESSAGE),
             })
@@ -353,7 +336,6 @@ export default function HistoryPanel() {
           New template
         </Button>
       </Box>
-      <RecentWorkSection requestConfirm={setConfirmRequest} />
       <TemplateSection
         title="Your recent templates"
         icon={<HistoryOutlined fontSize="small" sx={{ color: 'text.secondary' }} />}
