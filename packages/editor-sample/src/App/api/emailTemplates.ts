@@ -1,6 +1,6 @@
 import { EditorConfigurationSchema, TEditorConfiguration } from '../../documents/editor/core';
 
-import { apiCredentials, authHeaders, findErrorMessage, getApiBaseUrl } from './config';
+import { apiCredentials, authHeaders, diagnoseAuthFailure, findErrorMessage, getApiBaseUrl } from './config';
 
 /**
  * Two template systems exist on the backend:
@@ -21,6 +21,7 @@ export type EmailTemplateSummary = {
 };
 
 async function apiGet(path: string, orgScoped: boolean): Promise<unknown> {
+  const endpoint = path.split('?')[0];
   let response: Response;
   try {
     response = await fetch(`${getApiBaseUrl()}${path}`, {
@@ -29,15 +30,20 @@ async function apiGet(path: string, orgScoped: boolean): Promise<unknown> {
       headers: { Accept: 'application/json', ...authHeaders({ orgScoped }) },
     });
   } catch {
-    throw new Error('Could not reach the server. Check your connection and try again.');
+    throw new Error(
+      `GET ${endpoint}: request never reached the server. This is usually the backend CORS policy blocking this editor origin (or no network). Check that the API allows origin ${window.location.origin} with credentials.`
+    );
   }
   const json: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const serverMessage = findErrorMessage(json);
     if (response.status === 401 || response.status === 403) {
-      throw new Error(serverMessage ?? 'Not authorized. Please sign in to your Onchain Suite account.');
+      const diagnosis = await diagnoseAuthFailure();
+      throw new Error(
+        `GET ${endpoint} → ${response.status}${serverMessage ? ` ("${serverMessage}")` : ''}. ${diagnosis}`
+      );
     }
-    throw new Error(serverMessage ?? `Request failed (${response.status}).`);
+    throw new Error(`GET ${endpoint} → ${response.status}${serverMessage ? `: ${serverMessage}` : '.'}`);
   }
   return json;
 }
