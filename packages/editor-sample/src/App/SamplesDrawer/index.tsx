@@ -1,14 +1,15 @@
 import React from 'react';
 
-import { Box, Divider, Drawer, Stack, Tab, Tabs, Typography } from '@mui/material';
+import { Box, Drawer, Stack, Tab, Tabs } from '@mui/material';
 
 import { setSidebarTab, useSamplesDrawerOpen, useSelectedSidebarTab } from '../../documents/editor/EditorContext';
 
 import ConfigurationPanel from '../InspectorDrawer/ConfigurationPanel';
+import HistoryPanel from '../InspectorDrawer/HistoryPanel';
 import StylesPanel from '../InspectorDrawer/StylesPanel';
-import SidebarButton from './SidebarButton';
+import BlocksPanel from './BlocksPanel';
 
-export const SAMPLES_DRAWER_WIDTH = 240;
+export const SAMPLES_DRAWER_WIDTH = 260;
 
 export default function SamplesDrawer() {
   const samplesDrawerOpen = useSamplesDrawerOpen();
@@ -16,21 +17,18 @@ export default function SamplesDrawer() {
 
   const renderCurrentSidebarPanel = () => {
     switch (selectedSidebarTab) {
+      case 'blocks':
+        return (
+          <Box p={2}>
+            <BlocksPanel />
+          </Box>
+        );
       case 'block-configuration':
         return <ConfigurationPanel />;
       case 'styles':
         return <StylesPanel />;
       case 'history':
-        return (
-          <Stack spacing={2} sx={{ '& .MuiButtonBase-root': { width: '100%', justifyContent: 'flex-start' } }}>
-            <Typography variant="overline" color="text.secondary">Templates</Typography>
-            <Stack alignItems="flex-start">
-              <SidebarButton href="#">Empty</SidebarButton>
-              <SidebarButton href="#sample/welcome">Welcome email</SidebarButton>
-            </Stack>
-            <Divider />
-          </Stack>
-        );
+        return <HistoryPanel />;
     }
   };
 
@@ -44,20 +42,22 @@ export default function SamplesDrawer() {
         '& .MuiDrawer-paper': {
           top: 'var(--editor-top-offset, 56px)',
           height: 'calc(100% - var(--editor-top-offset, 56px))',
+          backgroundImage: 'none',
+          borderRight: '1px solid',
+          borderColor: 'divider',
         },
       }}
     >
       <Stack spacing={0} width={SAMPLES_DRAWER_WIDTH} height="100%">
-        <Box px={2} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Box px={1.5} sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={selectedSidebarTab} onChange={(_: React.SyntheticEvent, v: any) => setSidebarTab(v)}>
-            <Tab value="history" label="History" />
+            <Tab value="blocks" label="Blocks" />
+            <Tab value="history" label="Templates" />
             <Tab value="styles" label="Styles" />
             <Tab value="block-configuration" label="Inspect" />
           </Tabs>
         </Box>
-        <Box sx={{ height: 'calc(100% - 49px - 52px)', overflow: 'auto' }} p={2}>
-          {renderCurrentSidebarPanel()}
-        </Box>
+        <Box sx={{ flex: 1, overflow: 'auto' }}>{renderCurrentSidebarPanel()}</Box>
       </Stack>
     </Drawer>
   );

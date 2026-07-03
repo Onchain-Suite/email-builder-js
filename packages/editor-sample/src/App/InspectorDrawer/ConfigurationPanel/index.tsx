@@ -1,9 +1,10 @@
 import React from 'react';
 
-import { Box, Typography } from '@mui/material';
+import { MousePointerClick } from 'lucide-react';
+import { Box, Stack, Typography } from '@mui/material';
 
 import { TEditorBlock } from '../../../documents/editor/core';
-import { setDocument, useDocument, useSelectedBlockId } from '../../../documents/editor/EditorContext';
+import { setDocument, setSidebarTab, useDocument, useSelectedBlockId } from '../../../documents/editor/EditorContext';
 
 import AvatarSidebarPanel from './input-panels/AvatarSidebarPanel';
 import ButtonSidebarPanel from './input-panels/ButtonSidebarPanel';
@@ -17,11 +18,37 @@ import ImageSidebarPanel from './input-panels/ImageSidebarPanel';
 import SpacerSidebarPanel from './input-panels/SpacerSidebarPanel';
 import TextSidebarPanel from './input-panels/TextSidebarPanel';
 
-function renderMessage(val: string) {
+function renderEmptyState(title: string, hint: string) {
   return (
-    <Box sx={{ m: 3, p: 1, border: '1px dashed', borderColor: 'divider' }}>
-      <Typography color="text.secondary">{val}</Typography>
-    </Box>
+    <Stack alignItems="center" spacing={1.5} sx={{ px: 3, py: 6, textAlign: 'center' }}>
+      <Box
+        sx={{
+          width: 44,
+          height: 44,
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: (theme) => theme.palette.action.hover,
+          color: 'text.secondary',
+        }}
+      >
+        <MousePointerClick size={20} />
+      </Box>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+        {title}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {hint}
+      </Typography>
+      <Typography
+        variant="body2"
+        onClick={() => setSidebarTab('blocks')}
+        sx={{ color: 'primary.main', cursor: 'pointer', fontWeight: 500, '&:hover': { textDecoration: 'underline' } }}
+      >
+        Browse blocks →
+      </Typography>
+    </Stack>
   );
 }
 
@@ -30,11 +57,11 @@ export default function ConfigurationPanel() {
   const selectedBlockId = useSelectedBlockId();
 
   if (!selectedBlockId) {
-    return renderMessage('Click on a block to inspect.');
+    return renderEmptyState('Nothing selected', 'Click any block on the canvas to edit its content and appearance here.');
   }
   const block = document[selectedBlockId];
   if (!block) {
-    return renderMessage(`Block with id ${selectedBlockId} was not found. Click on a block to reset.`);
+    return renderEmptyState('Block not found', 'That block no longer exists. Click another block on the canvas.');
   }
 
   const setBlock = (conf: TEditorBlock) => setDocument({ [selectedBlockId]: conf });
