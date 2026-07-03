@@ -1,9 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { HistoryOutlined, PublicOutlined, RefreshOutlined } from '@mui/icons-material';
+import {
+  AddOutlined,
+  DeleteOutlineOutlined,
+  HistoryOutlined,
+  PublicOutlined,
+  RefreshOutlined,
+  RestoreOutlined,
+} from '@mui/icons-material';
 import {
   Alert,
   Box,
+  Button,
   Chip,
   CircularProgress,
   IconButton,
@@ -15,6 +23,8 @@ import {
 } from '@mui/material';
 
 import { resetDocument } from '../../../documents/editor/EditorContext';
+import { deleteSnapshot, useDesignSnapshots } from '../../../documents/editor/localHistory';
+import EMPTY_EMAIL_MESSAGE from '../../../getConfiguration/sample/empty-email-message';
 import { EmailTemplateSummary, fetchTemplateDocument, listTemplates } from '../../api/emailTemplates';
 import { useApiSession } from '../../api/session';
 
@@ -27,6 +37,67 @@ function formatDate(iso: string | null): string | null {
     return null;
   }
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatTime(iso: string): string {
+  const date = new Date(iso);
+  const sameDay = new Date().toDateString() === date.toDateString();
+  return sameDay
+    ? date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    : date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function RecentWorkSection() {
+  const snapshots = useDesignSnapshots();
+
+  return (
+    <Box>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, pt: 2, pb: 0.5 }}>
+        <RestoreOutlined fontSize="small" sx={{ color: 'text.secondary' }} />
+        <Typography variant="overline" color="text.secondary" sx={{ flexGrow: 1 }}>
+          Recent work (this device)
+        </Typography>
+      </Stack>
+      {snapshots.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>
+          Your changes are autosaved here as you edit.
+        </Typography>
+      ) : (
+        <List dense disablePadding>
+          {snapshots.map((snapshot) => (
+            <ListItemButton
+              key={snapshot.id}
+              onClick={() => {
+                if (window.confirm(`Restore "${snapshot.label}"? This will replace the current document.`)) {
+                  resetDocument(snapshot.document);
+                }
+              }}
+            >
+              <ListItemText
+                primary={
+                  <Typography variant="body2" noWrap>
+                    {snapshot.label}
+                  </Typography>
+                }
+                secondary={formatTime(snapshot.savedAt)}
+              />
+              <IconButton
+                size="small"
+                edge="end"
+                title="Delete snapshot"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  deleteSnapshot(snapshot.id);
+                }}
+              >
+                <DeleteOutlineOutlined fontSize="inherit" />
+              </IconButton>
+            </ListItemButton>
+          ))}
+        </List>
+      )}
+    </Box>
+  );
 }
 
 type SectionState =
@@ -162,6 +233,22 @@ export default function HistoryPanel() {
           {openError}
         </Alert>
       )}
+      <Box sx={{ px: 2, pt: 2 }}>
+        <Button
+          fullWidth
+          size="small"
+          variant="outlined"
+          startIcon={<AddOutlined fontSize="small" />}
+          onClick={() => {
+            if (window.confirm('Start a new blank template? Your current work stays in "Recent work" below.')) {
+              resetDocument(EMPTY_EMAIL_MESSAGE);
+            }
+          }}
+        >
+          New template
+        </Button>
+      </Box>
+      <RecentWorkSection />
       <TemplateSection
         title="Your recent templates"
         icon={<HistoryOutlined fontSize="small" sx={{ color: 'text.secondary' }} />}

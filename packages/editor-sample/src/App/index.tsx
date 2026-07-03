@@ -1,10 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Alert, Backdrop, Button, CircularProgress, Snackbar, Stack, useTheme } from '@mui/material';
 import { renderToStaticMarkup } from '@usewaypoint/email-builder';
 
 import { resetDocument, useDocument, useSamplesDrawerOpen } from '../documents/editor/EditorContext';
+import { recordSnapshot } from '../documents/editor/localHistory';
 import { VariablesProvider } from '../documents/editor/VariablesContext';
+
+import makeResponsiveHtml from './makeResponsiveHtml';
 
 import { setApiSession } from './api/session';
 import SamplesDrawer, { SAMPLES_DRAWER_WIDTH } from './SamplesDrawer';
@@ -32,7 +35,7 @@ function renderTextVersionFromHtml(html: string) {
 }
 
 function buildEmailContent(document: any) {
-  const html = renderToStaticMarkup(document, { rootBlockId: 'root' }).trim();
+  const html = makeResponsiveHtml(renderToStaticMarkup(document, { rootBlockId: 'root' }).trim());
   const textVersion = renderTextVersionFromHtml(html);
 
   if (!html && !textVersion) {
@@ -341,6 +344,49 @@ export default function App() {
     setApiSession({ apiUrl: apiUrl || null, token, orgId });
   }, [apiUrl, token, orgId]);
 
+  // Autosave: record a debounced local snapshot of every document change so
+  // recent work is always recoverable from the History tab.
+  useEffect(() => {
+    recordSnapshot(document);
+  }, [document]);
+
+  // Backend autosave: persist drafts to POST /campaigns/{id}/editor/saved
+  // (accepts editor-token auth). Best-effort and deduped so loading a
+  // template doesn't immediately re-save it.
+  const lastAutosavedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!campaignId || !apiUrl) return;
+    if (effectiveEmbedded && (!token || !orgId)) return;
+    const serialized = JSON.stringify(document);
+    if (serialized === lastAutosavedRef.current) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const { html, json, textVersion } = buildEmailContent(document);
+        const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+          headers['x-editor-token'] = token;
+        }
+        if (orgId) {
+          headers['x-org-id'] = orgId;
+        }
+        const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/editor/saved`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ html, json, textVersion }),
+          credentials: requestCredentials,
+        });
+        if (res.ok) {
+          lastAutosavedRef.current = serialized;
+        }
+      } catch {
+        // Autosave is best-effort; explicit Save Template reports errors.
+      }
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [document, campaignId, apiUrl, token, orgId, effectiveEmbedded, requestCredentials]);
+
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -371,39 +417,65 @@ export default function App() {
           headers['x-org-id'] = orgId;
         }
 
-        const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
-          method: 'GET',
-          headers,
-          credentials: 'omit',
-          signal: controller.signal,
-        });
+        const extractDocument = (data: any): any => {
+          if (data?.success === false) return null;
+          const payload = (data?.data ?? data?.payload ?? data) as any;
+          const doc = (payload?.document ?? payload?.json ?? payload?.emailConfig ?? payload) as any;
+          return doc && typeof doc === 'object' && doc.root ? doc : null;
+        };
 
-        if (!res.ok) {
-          if (res.status === 401 && effectiveEmbedded) {
-            postToParent({
-              type: 'EMAIL_AUTH_DEBUG',
-              payload: {
-                campaignId,
-                apiBaseUrl: apiUrl,
-                hasAuthorization: Boolean(token),
-                tokenLength: token?.length ?? 0,
-                tokenDotCount: token ? token.split('.').length - 1 : 0,
-                hasOrgId: Boolean(orgId),
-              },
-            });
-            postToParent({ type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } });
+        // Prefer the latest autosaved editor draft; fall back to the
+        // canonical persisted email document if there is no usable draft.
+        let fetchedDocument: any = null;
+        try {
+          const draftRes = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/editor/content`, {
+            method: 'GET',
+            headers,
+            credentials: 'omit',
+            signal: controller.signal,
+          });
+          if (draftRes.ok) {
+            fetchedDocument = extractDocument(await draftRes.json().catch(() => null));
           }
-          throw await buildErrorFromResponse(res);
+        } catch {
+          // Draft endpoint unavailable — use the canonical document below.
         }
 
-        const data = (await res.json()) as any;
-        if (data?.success === false) {
-          throw new Error(data?.error?.message ?? data?.message ?? 'Failed to load template.');
-        }
-        const payload = (data?.data ?? data?.payload ?? data) as any;
-        const fetchedDocument = (payload?.document ?? payload?.json ?? payload?.emailConfig ?? payload) as any;
+        if (!fetchedDocument) {
+          const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
+            method: 'GET',
+            headers,
+            credentials: 'omit',
+            signal: controller.signal,
+          });
 
-        if (!cancelled && fetchedDocument && typeof fetchedDocument === 'object' && fetchedDocument.root) {
+          if (!res.ok) {
+            if (res.status === 401 && effectiveEmbedded) {
+              postToParent({
+                type: 'EMAIL_AUTH_DEBUG',
+                payload: {
+                  campaignId,
+                  apiBaseUrl: apiUrl,
+                  hasAuthorization: Boolean(token),
+                  tokenLength: token?.length ?? 0,
+                  tokenDotCount: token ? token.split('.').length - 1 : 0,
+                  hasOrgId: Boolean(orgId),
+                },
+              });
+              postToParent({ type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } });
+            }
+            throw await buildErrorFromResponse(res);
+          }
+
+          const data = (await res.json()) as any;
+          if (data?.success === false) {
+            throw new Error(data?.error?.message ?? data?.message ?? 'Failed to load template.');
+          }
+          fetchedDocument = extractDocument(data);
+        }
+
+        if (!cancelled && fetchedDocument) {
+          lastAutosavedRef.current = JSON.stringify(fetchedDocument);
           resetDocument(fetchedDocument);
         }
       } catch (e) {
