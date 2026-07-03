@@ -29,7 +29,7 @@ export default function EmailLayoutSidebarFields({ data, setData }: EmailLayoutS
   };
 
   return (
-    <BaseSidebarPanel title="Global">
+    <BaseSidebarPanel title="Email styles">
       <ColorInput
         label="Backdrop color"
         defaultValue={data.backdropColor ?? '#F5F5F5'}

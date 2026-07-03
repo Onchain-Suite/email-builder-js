@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Maximize2, Minimize2, Monitor, Smartphone } from 'lucide-react';
-import { Box, IconButton, Paper, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
+import { Maximize2, Minimize2, Monitor, Redo2, Smartphone, Undo2 } from 'lucide-react';
+import { Box, Divider, IconButton, Paper, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
 import { Reader } from '@usewaypoint/email-builder';
 
 import EditorBlock from '../../documents/editor/EditorBlock';
 import {
+  redo,
   setSelectedScreenSize,
+  undo,
+  useCanRedo,
+  useCanUndo,
   useDocument,
   useSelectedMainTab,
   useSelectedScreenSize,
@@ -24,6 +28,33 @@ export default function TemplatePanel() {
   const document = useDocument();
   const selectedMainTab = useSelectedMainTab();
   const selectedScreenSize = useSelectedScreenSize();
+  const canUndo = useCanUndo();
+  const canRedo = useCanRedo();
+
+  // Cmd/Ctrl+Z to undo, Shift+Cmd/Ctrl+Z or Ctrl+Y to redo.
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      const target = ev.target as HTMLElement | null;
+      const isTyping =
+        target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable;
+      if (isTyping) return;
+      const mod = ev.metaKey || ev.ctrlKey;
+      if (!mod) return;
+      if (ev.key.toLowerCase() === 'z') {
+        ev.preventDefault();
+        if (ev.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      } else if (ev.key.toLowerCase() === 'y') {
+        ev.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const getParentOrigin = useCallback(() => {
     const fromGlobal = (window as any).__EMAIL_BUILDER_PARENT_ORIGIN__ as string | undefined;
@@ -165,8 +196,10 @@ export default function TemplatePanel() {
   }, [exitFullscreen, getParentOrigin, handleToggleFullscreen, isPseudoFullscreen, requestFullscreen]);
 
   let mainBoxSx: SxProps = {
-    height: '100%',
-    px: 20,
+    minHeight: '100%',
+    maxWidth: 800,
+    mx: 'auto',
+    px: { xs: 2, md: 6 },
     py: 5,
   };
   if (selectedScreenSize === 'mobile') {
@@ -174,10 +207,16 @@ export default function TemplatePanel() {
       ...mainBoxSx,
       margin: '32px auto',
       width: 370,
+      minHeight: 0,
       height: 800,
-      boxShadow:
-        'rgba(33, 36, 67, 0.04) 0px 10px 20px, rgba(33, 36, 67, 0.04) 0px 2px 6px, rgba(33, 36, 67, 0.04) 0px 0px 1px',
-      p: 3,
+      px: 0,
+      py: 0,
+      p: 1.5,
+      borderRadius: 6,
+      border: '1px solid',
+      borderColor: 'divider',
+      boxShadow: '0 24px 48px rgba(33, 36, 67, 0.18)',
+      overflow: 'auto',
     };
   }
 
@@ -192,12 +231,21 @@ export default function TemplatePanel() {
     }
   };
 
+  const canvasPaperSx: SxProps = {
+    p: 2,
+    backgroundColor: '#FFFFFF',
+    backgroundImage: 'none',
+    color: '#111827',
+    borderRadius: 3,
+    boxShadow: '0 1px 2px rgba(33,36,67,0.08), 0 20px 48px rgba(33,36,67,0.12)',
+  };
+
   const renderMainPanel = () => {
     switch (selectedMainTab) {
       case 'editor':
         return (
           <Box sx={mainBoxSx}>
-            <Paper sx={{ p: 2 }}>
+            <Paper sx={canvasPaperSx}>
               <EditorBlock id="root" />
             </Paper>
           </Box>
@@ -205,7 +253,7 @@ export default function TemplatePanel() {
       case 'preview':
         return (
           <Box sx={mainBoxSx}>
-            <Paper sx={{ p: 2 }}>
+            <Paper sx={canvasPaperSx}>
               <Reader document={document} rootBlockId="root" />
             </Paper>
           </Box>
@@ -226,7 +274,7 @@ export default function TemplatePanel() {
               inset: 0,
               width: '100vw',
               height: '100vh',
-              backgroundColor: 'white',
+              backgroundColor: 'background.default',
               zIndex: (theme) => theme.zIndex.modal + 2,
               display: 'flex',
               flexDirection: 'column',
@@ -242,9 +290,7 @@ export default function TemplatePanel() {
           height: 49,
           borderBottom: 1,
           borderColor: 'divider',
-          backgroundColor: 'white',
-          boxShadow:
-            '0px 2px 8px rgba(17, 24, 39, 0.06), 0px 1px 3px rgba(17, 24, 39, 0.04)',
+          backgroundColor: 'background.paper',
           transition: 'box-shadow 300ms ease-out, backdrop-filter 300ms ease-out',
           position: 'sticky',
           top: 0,
@@ -255,36 +301,68 @@ export default function TemplatePanel() {
         justifyContent="space-between"
         alignItems="center"
       >
-        <ToggleSamplesPanelButton />
-        <Stack px={2} direction="row" gap={2} width="100%" justifyContent="space-between" alignItems="center">
-          <Stack direction="row" spacing={2}>
-            <MainTabsGroup />
+        {/* Left zone: navigation — panel toggle + view tabs */}
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+          <ToggleSamplesPanelButton />
+          <MainTabsGroup />
+        </Stack>
+
+        {/* Center zone: canvas controls — history + device preview */}
+        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center">
+          <Stack direction="row" spacing={0.25} alignItems="center">
+            <Tooltip title="Undo (⌘Z / Ctrl+Z)">
+              <span>
+                <IconButton size="small" onClick={() => undo()} disabled={!canUndo}>
+                  <Undo2 size={16} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Redo (⇧⌘Z / Ctrl+Y)">
+              <span>
+                <IconButton size="small" onClick={() => redo()} disabled={!canRedo}>
+                  <Redo2 size={16} />
+                </IconButton>
+              </span>
+            </Tooltip>
           </Stack>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <DownloadJson />
-            <ImportJson />
-            <ToggleButtonGroup value={selectedScreenSize} exclusive size="small" onChange={handleScreenSizeChange}>
-              <ToggleButton value="desktop">
-                <Tooltip title="Desktop view">
-                  <Monitor size={16} />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="mobile">
-                <Tooltip title="Mobile view">
-                  <Smartphone size={16} />
-                </Tooltip>
-              </ToggleButton>
-            </ToggleButtonGroup>
-            <ShareButton />
+          <Divider orientation="vertical" flexItem sx={{ my: 1.25 }} />
+          <ToggleButtonGroup value={selectedScreenSize} exclusive size="small" onChange={handleScreenSizeChange}>
+            <ToggleButton value="desktop" sx={{ gap: 0.75 }}>
+              <Monitor size={15} />
+              Desktop
+            </ToggleButton>
+            <ToggleButton value="mobile" sx={{ gap: 0.75 }}>
+              <Smartphone size={15} />
+              Mobile
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Stack>
+
+        {/* Right zone: file actions — import/export, share, fullscreen */}
+        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end" sx={{ flex: 1, minWidth: 0 }}>
+          <ImportJson />
+          <DownloadJson />
+          <Divider orientation="vertical" flexItem sx={{ my: 1.25, mx: 0.5 }} />
+          <ShareButton />
+          <Tooltip title={isFullscreenActive ? 'Exit full screen' : 'Full screen'}>
             <IconButton onClick={handleToggleFullscreen} color={isFullscreenActive ? 'primary' : 'default'}>
-              <Tooltip title={isFullscreenActive ? 'Exit full screen' : 'Full screen'}>
-                {isFullscreenActive ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-              </Tooltip>
+              {isFullscreenActive ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </IconButton>
-          </Stack>
+          </Tooltip>
         </Stack>
       </Stack>
-      <Box sx={{ height: 'calc(100% - 49px)', overflow: 'auto', minWidth: 370, flex: 1 }}>{renderMainPanel()}</Box>
+      <Box
+        sx={{
+          height: 'calc(100% - 49px)',
+          overflow: 'auto',
+          minWidth: 370,
+          flex: 1,
+          backgroundImage: 'radial-gradient(rgba(17,24,39,0.07) 1px, transparent 1px)',
+          backgroundSize: '22px 22px',
+        }}
+      >
+        {renderMainPanel()}
+      </Box>
     </Box>
   );
 }

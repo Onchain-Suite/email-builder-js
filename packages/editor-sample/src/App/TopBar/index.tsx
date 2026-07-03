@@ -12,10 +12,9 @@ export default function TopBar() {
         position: 'sticky',
         top: 0,
         zIndex: 'tooltip',
-        backgroundColor: '#F0F7FF',
+        backgroundColor: 'background.paper',
         borderBottom: 1,
         borderColor: 'divider',
-        boxShadow: '0px 2px 8px rgba(17, 24, 39, 0.06), 0px 1px 3px rgba(17, 24, 39, 0.04)',
         px: 2,
       }}
     >
@@ -30,6 +29,7 @@ export default function TopBar() {
               alt="Onchain Suite"
               width={140}
               height={44}
+              style={{ opacity: 0.95 }}
             />
           </Stack>
         </Stack>

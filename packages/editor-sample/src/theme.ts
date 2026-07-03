@@ -1,5 +1,11 @@
 import { alpha, createTheme, darken, lighten } from '@mui/material/styles';
 
+/**
+ * Onchain Suite email builder — light editor chrome.
+ * Soft cloud-grey backdrop, crisp white panels, a single azure accent for
+ * all interactive states, and the email canvas presented as a bright sheet
+ * with a soft floating shadow.
+ */
 const BRAND_NAVY = '#212443';
 const BRAND_BLUE = '#0079CC';
 const BRAND_GREEN = '#1F8466';
@@ -7,6 +13,15 @@ const BRAND_RED = '#E81212';
 const BRAND_YELLOW = '#F6DC9F';
 const BRAND_PURPLE = '#6C0E7C';
 const BRAND_BROWN = '#CC996C';
+
+const ACCENT_BLUE = BRAND_BLUE;
+
+const CLOUD = '#F3F5F9'; // app backdrop
+const SURFACE = '#FFFFFF'; // panels / paper
+const LINE = 'rgba(17, 24, 39, 0.09)';
+const TEXT_PRIMARY = '#111827';
+const TEXT_SECONDARY = '#6B7280';
+
 const STANDARD_FONT_FAMILY =
   '-apple-system, BlinkMacSystemFont, Instrument Sans, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
 const MONOSPACE_FONT_FAMILY =
@@ -14,13 +29,16 @@ const MONOSPACE_FONT_FAMILY =
 
 const BASE_THEME = createTheme({
   palette: {
+    mode: 'light',
     background: {
-      default: '#F7F8FA',
+      default: CLOUD,
+      paper: SURFACE,
     },
     text: {
-      primary: '#111827',
-      secondary: '#6B7280',
+      primary: TEXT_PRIMARY,
+      secondary: TEXT_SECONDARY,
     },
+    divider: LINE,
   },
   typography: {
     fontFamily: 'Instrument Sans, ' + STANDARD_FONT_FAMILY,
@@ -80,10 +98,10 @@ const THEME = createTheme(BASE_THEME, {
       500: BRAND_YELLOW,
     },
     info: {
-      main: BRAND_BLUE,
+      main: ACCENT_BLUE,
     },
     primary: {
-      main: BRAND_BLUE,
+      main: ACCENT_BLUE,
     },
   },
   components: {
@@ -97,14 +115,32 @@ const THEME = createTheme(BASE_THEME, {
           padding: 0;
         }
         pre {
-          font-family: ${MONOSPACE_FONT_FAMILY}
+          font-family: ${MONOSPACE_FONT_FAMILY};
           white-space: pre-wrap;
           font-size: 12px;
+          background: ${SURFACE};
+          color: ${TEXT_PRIMARY};
+          border-radius: 12px;
+        }
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: rgba(17, 24, 39, 0.18);
+          border-radius: 8px;
+          border: 2px solid transparent;
+          background-clip: content-box;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(17, 24, 39, 0.32);
+          border: 2px solid transparent;
+          background-clip: content-box;
         }
         body {
-          background: radial-gradient(1200px at 20% 10%, ${alpha(BRAND_BLUE, 0.06)} 0, transparent 70%),
-                      radial-gradient(800px at 80% 0%, ${alpha(BRAND_PURPLE, 0.06)} 0, transparent 60%),
-                      ${BASE_THEME.palette.background.default};
+          background: radial-gradient(1400px at 15% -5%, ${alpha(BRAND_BLUE, 0.07)} 0, transparent 60%),
+                      radial-gradient(1000px at 90% 0%, ${alpha(BRAND_PURPLE, 0.05)} 0, transparent 55%),
+                      ${CLOUD};
           transition: background 300ms ${BASE_THEME.transitions.easing.easeOut};
         }
       `,
@@ -120,6 +156,7 @@ const THEME = createTheme(BASE_THEME, {
         },
         filledSuccess: {
           backgroundColor: BRAND_GREEN,
+          color: '#FFFFFF',
         },
       },
     },
@@ -133,6 +170,11 @@ const THEME = createTheme(BASE_THEME, {
     MuiDialog: {
       defaultProps: {
         fullWidth: true,
+      },
+      styleOverrides: {
+        paper: {
+          border: `1px solid ${LINE}`,
+        },
       },
     },
     MuiDialogContent: {
@@ -157,8 +199,7 @@ const THEME = createTheme(BASE_THEME, {
     MuiDialogActions: {
       styleOverrides: {
         root: {
-          borderTop: '1px solid',
-          borderTopColor: BASE_THEME.palette.divider,
+          borderTop: `1px solid ${LINE}`,
           marginTop: BASE_THEME.spacing(2.5),
           padding: `${BASE_THEME.spacing(1.5)} ${BASE_THEME.spacing(3)}`,
         },
@@ -168,13 +209,13 @@ const THEME = createTheme(BASE_THEME, {
       styleOverrides: {
         root: {
           ...BASE_THEME.typography.body2,
-          borderColor: BASE_THEME.palette.grey[200],
+          borderColor: LINE,
         },
         head: {
           ...BASE_THEME.typography.overline,
           fontWeight: BASE_THEME.typography.fontWeightMedium,
           letterSpacing: '0.075em',
-          color: BASE_THEME.palette.text.secondary,
+          color: TEXT_SECONDARY,
         },
       },
     },
@@ -197,11 +238,6 @@ const THEME = createTheme(BASE_THEME, {
     },
     MuiChip: {
       styleOverrides: {
-        root: {
-          '&.MuiChip-filledError, &.MuiChip-filledSuccess': {
-            fill: BASE_THEME.palette.primary.contrastText,
-          },
-        },
         sizeSmall: {
           borderRadius: BASE_THEME.spacing(0.5),
           fontSize: 12,
@@ -211,8 +247,8 @@ const THEME = createTheme(BASE_THEME, {
           marginLeft: BASE_THEME.spacing(1),
         },
         colorSecondary: {
-          borderColor: BASE_THEME.palette.grey[400],
-          color: BASE_THEME.palette.text.secondary,
+          borderColor: 'rgba(17,24,39,0.2)',
+          color: TEXT_SECONDARY,
         },
         label: {
           fontWeight: BASE_THEME.typography.fontWeightMedium,
@@ -222,13 +258,22 @@ const THEME = createTheme(BASE_THEME, {
     MuiDrawer: {
       defaultProps: {
         PaperProps: {
-          elevation: 2,
+          elevation: 0,
         },
       },
       styleOverrides: {
         paper: {
+          backgroundColor: SURFACE,
           transition: `transform ${BASE_THEME.transitions.duration.enteringScreen}ms ${BASE_THEME.transitions.easing.easeOut}, opacity ${BASE_THEME.transitions.duration.enteringScreen}ms ${BASE_THEME.transitions.easing.easeOut}`,
           willChange: 'transform, opacity',
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          border: `1px solid ${LINE}`,
+          boxShadow: '0px 12px 32px rgba(33, 36, 67, 0.12), 0px 2px 8px rgba(33, 36, 67, 0.08)',
         },
       },
     },
@@ -236,7 +281,7 @@ const THEME = createTheme(BASE_THEME, {
       styleOverrides: {
         tooltip: {
           fontSize: BASE_THEME.typography.pxToRem(12),
-          backgroundColor: alpha(BASE_THEME.palette.text.primary, 0.9),
+          backgroundColor: alpha(TEXT_PRIMARY, 0.92),
         },
       },
     },
@@ -244,6 +289,7 @@ const THEME = createTheme(BASE_THEME, {
       styleOverrides: {
         root: {
           height: 1,
+          color: ACCENT_BLUE,
         },
         track: {
           height: 1,
@@ -251,10 +297,10 @@ const THEME = createTheme(BASE_THEME, {
         },
         rail: {
           height: 1,
-          backgroundColor: BASE_THEME.palette.grey[500],
+          backgroundColor: 'rgba(17,24,39,0.25)',
         },
         mark: {
-          backgroundColor: BASE_THEME.palette.grey[500],
+          backgroundColor: 'rgba(17,24,39,0.25)',
         },
         markActive: {
           height: 0,
@@ -264,7 +310,7 @@ const THEME = createTheme(BASE_THEME, {
           width: 16,
           cursor: 'col-resize',
           '&:hover, &.Mui-active, &.Mui-focusVisible': {
-            boxShadow: `0 0 0 4px ${alpha(BRAND_BLUE, 0.2)}`,
+            boxShadow: `0 0 0 4px ${alpha(ACCENT_BLUE, 0.2)}`,
           },
           '&:before': {
             display: 'none',
@@ -274,7 +320,7 @@ const THEME = createTheme(BASE_THEME, {
     },
     MuiPaper: {
       defaultProps: {
-        elevation: 1,
+        elevation: 0,
         square: false,
       },
       styleOverrides: {
@@ -288,13 +334,6 @@ const THEME = createTheme(BASE_THEME, {
         disableTouchRipple: true,
         focusRipple: true,
       },
-      styleOverrides: {
-        root: {
-          '&.MuiButton-containedSecondary.Mui-disabled': {
-            backgroundColor: BASE_THEME.palette.grey[100],
-          },
-        },
-      },
     },
     MuiButtonGroup: {
       defaultProps: {
@@ -307,13 +346,13 @@ const THEME = createTheme(BASE_THEME, {
           marginLeft: BASE_THEME.spacing(-1),
         },
         colorSecondary: {
-          color: BASE_THEME.palette.grey[500],
+          color: TEXT_SECONDARY,
         },
         root: {
           borderRadius: 10,
           transition: `background-color ${BASE_THEME.transitions.duration.short}ms ${BASE_THEME.transitions.easing.easeOut}`,
           '&:hover': {
-            backgroundColor: alpha(BASE_THEME.palette.text.primary, 0.06),
+            backgroundColor: 'rgba(17,24,39,0.06)',
           },
         },
       },
@@ -324,27 +363,31 @@ const THEME = createTheme(BASE_THEME, {
       },
       styleOverrides: {
         textPrimary: {
-          color: BASE_THEME.palette.text.primary,
+          color: TEXT_PRIMARY,
         },
         textSecondary: {
-          color: BASE_THEME.palette.text.secondary,
+          color: TEXT_SECONDARY,
         },
         outlinedPrimary: {
-          borderColor: BASE_THEME.palette.grey[300],
-          color: BASE_THEME.palette.text.primary,
+          borderColor: 'rgba(17,24,39,0.18)',
+          color: TEXT_PRIMARY,
           '&:hover, &:active, &:focus': {
-            borderColor: BASE_THEME.palette.grey[500],
-            color: BASE_THEME.palette.text.primary,
+            borderColor: 'rgba(17,24,39,0.38)',
+            backgroundColor: 'rgba(17,24,39,0.03)',
+            color: TEXT_PRIMARY,
           },
         },
+        containedPrimary: {
+          fontWeight: 600,
+        },
         containedSecondary: {
-          backgroundColor: BASE_THEME.palette.common.white,
-          border: `1px solid ${BASE_THEME.palette.grey[300]}`,
-          color: BASE_THEME.palette.text.primary,
+          backgroundColor: SURFACE,
+          border: `1px solid rgba(17,24,39,0.18)`,
+          color: TEXT_PRIMARY,
           '&:hover, &:active, &:focus': {
-            backgroundColor: BASE_THEME.palette.common.white,
-            borderColor: BASE_THEME.palette.grey[500],
-            color: BASE_THEME.palette.text.primary,
+            backgroundColor: SURFACE,
+            borderColor: 'rgba(17,24,39,0.38)',
+            color: TEXT_PRIMARY,
           },
         },
         root: {
@@ -359,8 +402,14 @@ const THEME = createTheme(BASE_THEME, {
           paddingLeft: BASE_THEME.spacing(1.5),
           paddingRight: BASE_THEME.spacing(1.5),
           borderRadius: 10,
+          border: `1px solid ${LINE}`,
+          color: TEXT_SECONDARY,
           '&.Mui-selected': {
-            backgroundColor: alpha(BASE_THEME.palette.text.primary, 0.06),
+            backgroundColor: alpha(ACCENT_BLUE, 0.1),
+            color: ACCENT_BLUE,
+            '&:hover': {
+              backgroundColor: alpha(ACCENT_BLUE, 0.16),
+            },
           },
         },
       },
@@ -369,26 +418,26 @@ const THEME = createTheme(BASE_THEME, {
       styleOverrides: {
         root: {
           '&:not(.Mui-disabled, .Mui-error):before': {
-            borderBottom: `1px solid ${BASE_THEME.palette.grey[400]}`,
+            borderBottom: `1px solid rgba(17,24,39,0.24)`,
           },
           '&:hover:not(.Mui-disabled, .Mui-error):before': {
-            borderBottom: `1px solid ${BASE_THEME.palette.grey[500]} !important`,
+            borderBottom: `1px solid rgba(17,24,39,0.44) !important`,
           },
           '&:after': {
-            borderBottom: `1px solid ${BASE_THEME.palette.text.primary} !important`,
+            borderBottom: `1px solid ${ACCENT_BLUE} !important`,
           },
           '&.MuiOutlinedInput-root:not(.Mui-error)': {
             '& fieldset': {
-              borderColor: BASE_THEME.palette.grey[300],
+              borderColor: 'rgba(17,24,39,0.18)',
               transition: 'border-color 0.2s',
             },
           },
           '&.MuiOutlinedInput-root:not(.Mui-disabled, .Mui-error)': {
             '&:hover fieldset': {
-              borderColor: BASE_THEME.palette.grey[400],
+              borderColor: 'rgba(17,24,39,0.32)',
             },
             '&.Mui-focused fieldset': {
-              borderColor: BASE_THEME.palette.text.secondary,
+              borderColor: ACCENT_BLUE,
               borderWidth: 1,
             },
           },
@@ -397,7 +446,7 @@ const THEME = createTheme(BASE_THEME, {
           fontSize: BASE_THEME.typography.pxToRem(14),
           '&.Mui-disabled': {
             WebkitTextFillColor: 'inherit',
-            color: BASE_THEME.palette.text.secondary,
+            color: TEXT_SECONDARY,
           },
         },
         inputSizeSmall: {},
@@ -418,7 +467,7 @@ const THEME = createTheme(BASE_THEME, {
         root: {
           '& .MuiTypography-root': {
             fontSize: BASE_THEME.typography.pxToRem(14),
-            color: BASE_THEME.palette.text.secondary,
+            color: TEXT_SECONDARY,
           },
         },
       },
@@ -432,11 +481,11 @@ const THEME = createTheme(BASE_THEME, {
           transform: 'scale(0.85)',
           fontWeight: BASE_THEME.typography.fontWeightMedium,
           '&.Mui-focused': {
-            color: BASE_THEME.palette.text.primary,
+            color: ACCENT_BLUE,
           },
           '&.MuiInputLabel-standard': {
             transform: 'translate(0, -4px) scale(0.85)',
-            color: '#4F4F4F',
+            color: TEXT_SECONDARY,
           },
           '&.MuiInputLabel-outlined': {
             transform: 'translate(15px, -8px) scale(0.85)',
@@ -451,7 +500,7 @@ const THEME = createTheme(BASE_THEME, {
       styleOverrides: {
         indicator: {
           height: 2,
-          backgroundColor: BASE_THEME.palette.text.primary,
+          backgroundColor: ACCENT_BLUE,
         },
       },
     },
@@ -466,12 +515,13 @@ const THEME = createTheme(BASE_THEME, {
           fontFamily: BASE_THEME.typography.fontFamily,
           lineHeight: 1.5,
           fontWeight: BASE_THEME.typography.fontWeightMedium,
+          color: TEXT_SECONDARY,
           transition: `color ${BASE_THEME.transitions.duration.short}ms ${BASE_THEME.transitions.easing.easeOut}`,
           '&.Mui-selected': {
-            color: BASE_THEME.palette.text.primary,
+            color: TEXT_PRIMARY,
           },
           '&:hover': {
-            color: BASE_THEME.palette.text.primary,
+            color: TEXT_PRIMARY,
           },
         },
       },
@@ -480,7 +530,7 @@ const THEME = createTheme(BASE_THEME, {
       styleOverrides: {
         root: {
           borderRadius: 12,
-          boxShadow: BASE_THEME.shadows[2],
+          border: `1px solid ${LINE}`,
         },
       },
     },
