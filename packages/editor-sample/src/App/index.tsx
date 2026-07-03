@@ -154,6 +154,11 @@ export default function App() {
     const raw = searchParams.get('token') ?? searchParams.get('sessionToken') ?? searchParams.get('editorToken');
     return normalizeToken(raw);
   });
+  // Real user session token for template/asset endpoints (the editor token
+  // above is only valid on campaign editor routes).
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return normalizeToken(searchParams.get('authToken'));
+  });
   const [orgId, setOrgId] = useState<string | null>(() => {
     if (initialEmbedded) return null;
     return normalizeNonEmptyString(searchParams.get('orgId'));
@@ -222,7 +227,7 @@ export default function App() {
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    const keysToStrip = ['token', 'sessionToken', 'editorToken'];
+    const keysToStrip = ['token', 'sessionToken', 'editorToken', 'authToken'];
     let changed = false;
     for (const key of keysToStrip) {
       if (url.searchParams.has(key)) {
@@ -311,6 +316,7 @@ export default function App() {
 
       const nextCampaignId = normalizeCampaignId(data.campaignId ?? data.campaign ?? data.campaign?.id);
       const nextToken = normalizeToken(data.token ?? data.sessionToken ?? data.editorToken);
+      const nextAuthToken = normalizeToken(data.authToken ?? data.userToken ?? data.apiSessionToken);
       const nextOrgId = normalizeNonEmptyString(
         data.orgId ??
           data.organizationId ??
@@ -324,6 +330,7 @@ export default function App() {
       setParentOrigin(event.origin);
       if (nextCampaignId) setCampaignId(nextCampaignId);
       if (nextToken) setToken(nextToken);
+      if (nextAuthToken) setAuthToken(nextAuthToken);
       if (nextOrgId) setOrgId(nextOrgId);
       if (nextApiBaseUrl) setApiUrl(nextApiBaseUrl);
       if (nextEmbedded !== null) setEmbedded(nextEmbedded);
@@ -359,8 +366,8 @@ export default function App() {
   // Share host-provided credentials with the API modules (asset uploads,
   // template history panel) so they authenticate like the campaign flow.
   useEffect(() => {
-    setApiSession({ apiUrl: apiUrl || null, token, orgId });
-  }, [apiUrl, token, orgId]);
+    setApiSession({ apiUrl: apiUrl || null, token, authToken, orgId, campaignId });
+  }, [apiUrl, token, authToken, orgId, campaignId]);
 
   // Autosave: record a debounced local snapshot of every document change so
   // recent work is always recoverable from the History tab.
@@ -627,6 +634,33 @@ export default function App() {
     let reusableTemplateId = savedReusableTemplateId;
     let reusableTemplateName = savedReusableTemplateName;
 
+    if (!reusableTemplateId && requestedName) {
+      // Deduplicate: if a template with this exact name already exists
+      // (e.g. localStorage was cleared or partitioned in the iframe),
+      // update it instead of creating yet another copy.
+      try {
+        const searchRes = await fetch(
+          `${apiUrl}/templates?search=${encodeURIComponent(requestedName)}&limit=50`,
+          { headers: templateHeaders, credentials: requestCredentials }
+        );
+        if (searchRes.ok) {
+          const searchData = (await searchRes.json().catch(() => null)) as any;
+          const rawList = (searchData?.data ?? searchData?.templates ?? searchData?.items ?? searchData) as any;
+          const list: any[] = Array.isArray(rawList) ? rawList : Array.isArray(rawList?.data) ? rawList.data : [];
+          const wanted = requestedName.trim().toLowerCase();
+          const match = list.find(
+            (t) => typeof t?.name === 'string' && t.name.trim().toLowerCase() === wanted && (t.id ?? t._id)
+          );
+          if (match) {
+            reusableTemplateId = String(match.id ?? match._id);
+            reusableTemplateName = String(match.name);
+          }
+        }
+      } catch {
+        // Search is best-effort; fall through to create.
+      }
+    }
+
     if (!reusableTemplateId) {
       if (!requestedName) {
         setSuccessMessage('Campaign saved. Reusable template was skipped.');
@@ -716,7 +750,7 @@ export default function App() {
   };
 
   return (
-    <VariablesProvider apiBaseUrl={apiUrl} token={token} orgId={orgId} embedded={effectiveEmbedded}>
+    <VariablesProvider apiBaseUrl={apiUrl} token={token} orgId={orgId} campaignId={campaignId} embedded={effectiveEmbedded}>
       <PostMessageListener />
       {!effectiveEmbedded ? <TopBar /> : null}
       <SamplesDrawer />

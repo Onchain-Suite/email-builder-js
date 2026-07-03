@@ -38,10 +38,12 @@ export function getApiBaseUrl(): string {
  * member of this organization", so they must not receive it.
  */
 export function authHeaders(options?: { orgScoped?: boolean }): Record<string, string> {
-  const { orgId } = getApiSession();
+  const { orgId, authToken } = getApiSession();
   const headers: Record<string, string> = {};
-  if (ENV_TOKEN) {
-    headers['Authorization'] = `Bearer ${ENV_TOKEN}`;
+  const bearerToken = authToken ?? ENV_TOKEN;
+  if (bearerToken) {
+    headers['Authorization'] = `Bearer ${bearerToken}`;
+    headers['x-session-token'] = bearerToken;
   }
   if (options?.orgScoped && orgId) {
     headers['x-org-id'] = orgId;

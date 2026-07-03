@@ -37,10 +37,18 @@ type VariablesProviderProps = {
   apiBaseUrl?: string;
   token?: string | null;
   orgId?: string | null;
+  campaignId?: string | null;
   embedded?: boolean;
 };
 
-export const VariablesProvider: React.FC<VariablesProviderProps> = ({ children, apiBaseUrl, token, orgId, embedded }) => {
+export const VariablesProvider: React.FC<VariablesProviderProps> = ({
+  children,
+  apiBaseUrl,
+  token,
+  orgId,
+  campaignId,
+  embedded,
+}) => {
   const [variableGroups, setVariableGroups] = useState<VariableGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +83,12 @@ export const VariablesProvider: React.FC<VariablesProviderProps> = ({ children, 
           headers['x-editor-token'] = token;
         }
 
-        const res = await fetch(`${baseUrl}/email-builder/config`, {
+        // campaignId lets the backend resolve the editor token's scope on
+        // this route (required for cookie-less editor-token auth).
+        const configUrl = campaignId
+          ? `${baseUrl}/email-builder/config?campaignId=${encodeURIComponent(campaignId)}`
+          : `${baseUrl}/email-builder/config`;
+        const res = await fetch(configUrl, {
           method: 'GET',
           headers,
           credentials: token ? 'omit' : 'include',
@@ -136,7 +149,7 @@ export const VariablesProvider: React.FC<VariablesProviderProps> = ({ children, 
     };
 
     fetchVariables();
-  }, [baseUrl, embedded, orgId, refreshNonce, token]);
+  }, [baseUrl, campaignId, embedded, orgId, refreshNonce, token]);
 
   return (
     <VariablesContext.Provider value={{ variableGroups, loading, error, refresh }}>
