@@ -14,7 +14,7 @@
  *                            default the browser session cookie is used
  *                            (`credentials: "include"`).
  */
-import { apiCredentials, authHeaders, findErrorMessage, getApiBaseUrl } from '../../../../../api/config';
+import { apiCredentials, authHeaders, diagnoseAuthFailure, findErrorMessage, getApiBaseUrl } from '../../../../../api/config';
 
 export function getImageUploadEndpoint(): string {
   return import.meta.env.VITE_IMAGE_UPLOAD_URL ?? `${getApiBaseUrl()}/assets`;
@@ -69,19 +69,28 @@ export async function uploadImage(file: File): Promise<string> {
       headers: authHeaders({ orgScoped: true }), // assets are org-scoped
     });
   } catch {
-    throw new Error('Upload failed: could not reach the server. Check your connection and try again.');
+    throw new Error(
+      `Upload request never reached the server — usually the backend CORS policy blocking this editor origin (${window.location.origin}), or no network.`
+    );
   }
 
   const json: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
+    const serverMessage = findErrorMessage(json);
     if (response.status === 401 || response.status === 403) {
-      throw new Error('Upload not authorized. Please sign in to your Onchain Suite account and try again.');
+      const diagnosis = await diagnoseAuthFailure();
+      throw new Error(`Upload → ${response.status}${serverMessage ? ` ("${serverMessage}")` : ''}. ${diagnosis}`);
+    }
+    if (response.status === 404) {
+      throw new Error(
+        'Upload → 404: the /assets endpoint does not exist on this backend deployment. The asset-library migration may not be deployed yet.'
+      );
     }
     if (response.status === 413) {
       throw new Error('Image is too large for the server.');
     }
-    throw new Error(findErrorMessage(json) ?? `Upload failed (${response.status}). Please try again.`);
+    throw new Error(serverMessage ?? `Upload failed (${response.status}). Please try again.`);
   }
 
   const url = findUrl(json);

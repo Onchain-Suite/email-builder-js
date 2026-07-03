@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 
-import { ToggleButton } from '@mui/material';
+import { Box, Stack, TextField, ToggleButton } from '@mui/material';
 import { ButtonProps, ButtonPropsDefaults, ButtonPropsSchema } from '@usewaypoint/block-button';
 
 import BaseSidebarPanel from './helpers/BaseSidebarPanel';
 import ColorInput from './helpers/inputs/ColorInput';
 import RadioGroupInput from './helpers/inputs/RadioGroupInput';
 import TextInput from './helpers/inputs/TextInput';
+import VariableTagButton from './helpers/inputs/VariableTagPicker';
 import MultiStylePropertyPanel from './helpers/style-inputs/MultiStylePropertyPanel';
 
 type ButtonSidebarPanelProps = {
@@ -15,6 +16,7 @@ type ButtonSidebarPanelProps = {
 };
 export default function ButtonSidebarPanel({ data, setData }: ButtonSidebarPanelProps) {
   const [, setErrors] = useState<Zod.ZodError | null>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   const updateData = (d: unknown) => {
     const res = ButtonPropsSchema.safeParse(d);
@@ -34,13 +36,33 @@ export default function ButtonSidebarPanel({ data, setData }: ButtonSidebarPanel
   const buttonTextColor = data.props?.buttonTextColor ?? ButtonPropsDefaults.buttonTextColor;
   const buttonBackgroundColor = data.props?.buttonBackgroundColor ?? ButtonPropsDefaults.buttonBackgroundColor;
 
+  const insertTagInText = (tagValue: string) => {
+    const input = textInputRef.current;
+    const start = input?.selectionStart ?? text.length;
+    const end = input?.selectionEnd ?? text.length;
+    const newText = text.substring(0, start) + tagValue + text.substring(end);
+    updateData({ ...data, props: { ...data.props, text: newText } });
+    setTimeout(() => {
+      input?.focus();
+      input?.setSelectionRange(start + tagValue.length, start + tagValue.length);
+    }, 0);
+  };
+
   return (
     <BaseSidebarPanel title="Button block">
-      <TextInput
-        label="Text"
-        defaultValue={text}
-        onChange={(text) => updateData({ ...data, props: { ...data.props, text } })}
-      />
+      <Box>
+        <Stack direction="row" justifyContent="flex-end" mb={1}>
+          <VariableTagButton onInsert={insertTagInText} />
+        </Stack>
+        <TextField
+          label="Text"
+          fullWidth
+          variant="standard"
+          value={text}
+          onChange={(e) => updateData({ ...data, props: { ...data.props, text: e.target.value } })}
+          inputRef={textInputRef}
+        />
+      </Box>
       <TextInput
         label="Url"
         defaultValue={url}

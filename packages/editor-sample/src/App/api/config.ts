@@ -54,6 +54,27 @@ export function apiCredentials(): RequestCredentials {
   return 'include';
 }
 
+/**
+ * When a request comes back 401/403, probe the session endpoint to tell the
+ * user exactly which link in the auth chain is broken.
+ */
+export async function diagnoseAuthFailure(): Promise<string> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/auth/get-session`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+    const json: unknown = await res.json().catch(() => null);
+    const hasUser = typeof json === 'object' && json !== null && 'user' in (json as Record<string, unknown>);
+    if (hasUser) {
+      return 'Your dashboard session IS active and reaches the API, but this endpoint still refused the request — likely a permissions/role issue for your user, or the backend does not accept session auth on this route.';
+    }
+    return 'No active session reached the API. Either you are not signed in to the Onchain Suite dashboard in this browser, or the session cookie is not sent from the editor origin (cookie SameSite/domain scope). Sign in to the dashboard, then reload the builder.';
+  } catch {
+    return 'The session check itself could not reach the API — the backend CORS policy probably does not allow this editor origin with credentials (Access-Control-Allow-Origin + Access-Control-Allow-Credentials).';
+  }
+}
+
 export function findErrorMessage(obj: unknown): string | null {
   if (typeof obj !== 'object' || obj === null) {
     return null;
