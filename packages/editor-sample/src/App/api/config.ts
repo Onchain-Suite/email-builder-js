@@ -21,19 +21,27 @@ export function getApiBaseUrl(): string {
 }
 
 /**
+ * Auth for template/asset endpoints.
+ *
+ * IMPORTANT: the host-provided token is an *editor token*, which the backend
+ * only accepts on the campaign editor routes (/email, /autosave,
+ * /editor/content, /editor/saved). Sending it to template or asset endpoints
+ * fails with "Authentication failed". Those endpoints authenticate with the
+ * browser session cookie instead — which works embedded because
+ * editor.onchainsuite.com and api.onchainsuite.com are the same site.
+ * An explicit VITE_API_AUTH_TOKEN (real session token) is still honored for
+ * local development.
+ *
  * @param options.orgScoped Include the `x-org-id` header. Only set this for
- * org-scoped endpoints (e.g. /assets, /templates, /campaigns). User-scoped
- * endpoints like /email-templates reject requests carrying an org header
- * with "You are not a member of this organization" when the org context
- * doesn't match, so they must not receive it.
+ * org-scoped endpoints (e.g. /assets, /templates). User-scoped endpoints
+ * like /email-templates reject mismatched org headers with "You are not a
+ * member of this organization", so they must not receive it.
  */
 export function authHeaders(options?: { orgScoped?: boolean }): Record<string, string> {
-  const { token, orgId } = getApiSession();
+  const { orgId } = getApiSession();
   const headers: Record<string, string> = {};
-  const effectiveToken = token ?? ENV_TOKEN;
-  if (effectiveToken) {
-    headers['Authorization'] = `Bearer ${effectiveToken}`;
-    headers['x-editor-token'] = effectiveToken;
+  if (ENV_TOKEN) {
+    headers['Authorization'] = `Bearer ${ENV_TOKEN}`;
   }
   if (options?.orgScoped && orgId) {
     headers['x-org-id'] = orgId;
@@ -41,14 +49,9 @@ export function authHeaders(options?: { orgScoped?: boolean }): Record<string, s
   return headers;
 }
 
-/**
- * Matches the campaign save/load flow: when a host-provided token is present,
- * cookies are omitted (embedded, cross-origin); otherwise fall back to the
- * browser session cookie.
- */
+/** Session-cookie auth (same-site across *.onchainsuite.com subdomains). */
 export function apiCredentials(): RequestCredentials {
-  const { token } = getApiSession();
-  return token ?? ENV_TOKEN ? 'omit' : 'include';
+  return 'include';
 }
 
 export function findErrorMessage(obj: unknown): string | null {

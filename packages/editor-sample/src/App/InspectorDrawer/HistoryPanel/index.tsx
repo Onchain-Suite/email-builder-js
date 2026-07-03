@@ -14,6 +14,10 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   List,
   ListItemButton,
@@ -47,7 +51,39 @@ function formatTime(iso: string): string {
     : date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function RecentWorkSection() {
+export type TConfirmRequest = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  action: () => void;
+};
+
+function ConfirmDialog({ request, onClose }: { request: TConfirmRequest | null; onClose: () => void }) {
+  return (
+    <Dialog open={request !== null} onClose={onClose} maxWidth="xs">
+      <DialogTitle>{request?.title}</DialogTitle>
+      <DialogContent>
+        <Typography variant="body1" color="text.secondary">
+          {request?.message}
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={() => {
+            request?.action();
+            onClose();
+          }}
+        >
+          {request?.confirmLabel}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function RecentWorkSection({ requestConfirm }: { requestConfirm: (request: TConfirmRequest) => void }) {
   const snapshots = useDesignSnapshots();
 
   return (
@@ -67,11 +103,14 @@ function RecentWorkSection() {
           {snapshots.map((snapshot) => (
             <ListItemButton
               key={snapshot.id}
-              onClick={() => {
-                if (window.confirm(`Restore "${snapshot.label}"? This will replace the current document.`)) {
-                  resetDocument(snapshot.document);
-                }
-              }}
+              onClick={() =>
+                requestConfirm({
+                  title: 'Restore this version?',
+                  message: `"${snapshot.label}" will replace what's currently on the canvas. Your current work stays available in Recent work.`,
+                  confirmLabel: 'Restore',
+                  action: () => resetDocument(snapshot.document),
+                })
+              }
             >
               <ListItemText
                 primary={
@@ -209,11 +248,9 @@ function TemplateSection({ title, icon, emptyMessage, access, loadingId, onOpen 
 export default function HistoryPanel() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
+  const [confirmRequest, setConfirmRequest] = useState<TConfirmRequest | null>(null);
 
-  const handleOpen = async (template: EmailTemplateSummary) => {
-    if (!window.confirm(`Open "${template.name}"? This will replace the document you are currently editing.`)) {
-      return;
-    }
+  const openTemplate = async (template: EmailTemplateSummary) => {
     setLoadingId(template.id);
     setOpenError(null);
     try {
@@ -226,8 +263,18 @@ export default function HistoryPanel() {
     }
   };
 
+  const handleOpen = (template: EmailTemplateSummary) => {
+    setConfirmRequest({
+      title: `Open "${template.name}"?`,
+      message: 'It will replace what’s currently on the canvas. Your current work stays available in Recent work.',
+      confirmLabel: 'Open template',
+      action: () => void openTemplate(template),
+    });
+  };
+
   return (
     <Box pb={2}>
+      <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
       {openError && (
         <Alert severity="error" onClose={() => setOpenError(null)} sx={{ m: 1 }}>
           {openError}
@@ -239,16 +286,19 @@ export default function HistoryPanel() {
           size="small"
           variant="outlined"
           startIcon={<AddOutlined fontSize="small" />}
-          onClick={() => {
-            if (window.confirm('Start a new blank template? Your current work stays in "Recent work" below.')) {
-              resetDocument(EMPTY_EMAIL_MESSAGE);
-            }
-          }}
+          onClick={() =>
+            setConfirmRequest({
+              title: 'Start a new template?',
+              message: 'You’ll get a blank canvas. Your current work stays available in Recent work.',
+              confirmLabel: 'New template',
+              action: () => resetDocument(EMPTY_EMAIL_MESSAGE),
+            })
+          }
         >
           New template
         </Button>
       </Box>
-      <RecentWorkSection />
+      <RecentWorkSection requestConfirm={setConfirmRequest} />
       <TemplateSection
         title="Your recent templates"
         icon={<HistoryOutlined fontSize="small" sx={{ color: 'text.secondary' }} />}
