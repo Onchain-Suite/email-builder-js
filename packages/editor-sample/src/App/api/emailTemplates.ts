@@ -1,6 +1,7 @@
 import { EditorConfigurationSchema, TEditorConfiguration } from '../../documents/editor/core';
 
 import { apiCredentials, authHeaders, diagnoseAuthFailure, findErrorMessage, getApiBaseUrl } from './config';
+import { getApiSession } from './session';
 
 /**
  * Two template systems exist on the backend:
@@ -20,32 +21,70 @@ export type EmailTemplateSummary = {
   isRecommended: boolean;
 };
 
-async function apiGet(path: string, orgScoped: boolean): Promise<unknown> {
+async function apiRequest(method: 'GET' | 'DELETE', path: string, orgScoped: boolean): Promise<unknown> {
   const endpoint = path.split('?')[0];
+  const { token, orgId, campaignId } = getApiSession();
+
+  // The editor origin is cross-site to the API, so the dashboard session
+  // cookie never travels with these requests. The editor token IS the
+  // designed transport here — the backend accepts it on template/config GET
+  // routes when the request also carries the campaignId it was minted for.
+  let url = `${getApiBaseUrl()}${path}`;
+  if (campaignId) {
+    url += `${url.includes('?') ? '&' : '?'}campaignId=${encodeURIComponent(campaignId)}`;
+  }
+
+  const doFetch = (headers: Record<string, string>) =>
+    fetch(url, {
+      method,
+      credentials: apiCredentials(),
+      headers: { Accept: 'application/json', ...headers },
+    });
+
+  const editorHeaders: Record<string, string> | null = token
+    ? {
+        Authorization: `Bearer ${token}`,
+        'x-editor-token': token,
+        ...(orgScoped && orgId ? { 'x-org-id': orgId } : {}),
+      }
+    : null;
+
   let response: Response;
   try {
-    response = await fetch(`${getApiBaseUrl()}${path}`, {
-      method: 'GET',
-      credentials: apiCredentials(),
-      headers: { Accept: 'application/json', ...authHeaders({ orgScoped }) },
-    });
+    // Primary: editor token (works cookie-less from this origin).
+    // Fallback: explicit auth token / env token / session cookie.
+    response = await doFetch(editorHeaders ?? authHeaders({ orgScoped }));
+    if (editorHeaders && (response.status === 401 || response.status === 403)) {
+      const fallback = await doFetch(authHeaders({ orgScoped })).catch(() => null);
+      if (fallback && fallback.ok) {
+        response = fallback;
+      }
+    }
   } catch {
     throw new Error(
-      `GET ${endpoint}: request never reached the server. This is usually the backend CORS policy blocking this editor origin (or no network). Check that the API allows origin ${window.location.origin} with credentials.`
+      `${method} ${endpoint}: request never reached the server. This is usually the backend CORS policy blocking this editor origin (or no network). Check that the API allows origin ${window.location.origin} with credentials.`
     );
   }
+
   const json: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const serverMessage = findErrorMessage(json);
     if (response.status === 401 || response.status === 403) {
       const diagnosis = await diagnoseAuthFailure();
+      const authUsed = editorHeaders
+        ? `Tried editor token${campaignId ? ` (campaignId=${campaignId})` : ' (no campaignId available!)'} and session fallback.`
+        : 'No editor token available; used session auth only.';
       throw new Error(
-        `GET ${endpoint} → ${response.status}${serverMessage ? ` ("${serverMessage}")` : ''}. ${diagnosis}`
+        `${method} ${endpoint} → ${response.status}${serverMessage ? ` ("${serverMessage}")` : ''}. ${authUsed} ${diagnosis}`
       );
     }
-    throw new Error(`GET ${endpoint} → ${response.status}${serverMessage ? `: ${serverMessage}` : '.'}`);
+    throw new Error(`${method} ${endpoint} → ${response.status}${serverMessage ? `: ${serverMessage}` : '.'}`);
   }
   return json;
+}
+
+async function apiGet(path: string, orgScoped: boolean): Promise<unknown> {
+  return apiRequest('GET', path, orgScoped);
 }
 
 function unwrapList(json: unknown): unknown[] {
@@ -176,6 +215,56 @@ function findDocumentCandidate(obj: unknown, depth = 0): unknown {
     }
   }
   return null;
+}
+
+/**
+ * Finds duplicate org templates (same trimmed, case-insensitive name),
+ * keeping the most recently updated of each group.
+ */
+export async function findDuplicateTemplates(): Promise<{
+  keep: EmailTemplateSummary[];
+  remove: EmailTemplateSummary[];
+}> {
+  const all = await listFrom('/templates?sort=recent&limit=100', 'org');
+  const byName = new Map<string, EmailTemplateSummary[]>();
+  for (const template of all) {
+    const key = template.name.trim().toLowerCase();
+    byName.set(key, [...(byName.get(key) ?? []), template]);
+  }
+
+  const keep: EmailTemplateSummary[] = [];
+  const remove: EmailTemplateSummary[] = [];
+  for (const group of byName.values()) {
+    const sorted = [...group].sort((a, b) => {
+      const ta = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const tb = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return tb - ta;
+    });
+    keep.push(sorted[0]);
+    remove.push(...sorted.slice(1));
+  }
+  return { keep, remove };
+}
+
+/** Deletes the given org templates. Returns how many were deleted. */
+export async function deleteTemplates(templates: EmailTemplateSummary[]): Promise<number> {
+  let deleted = 0;
+  let firstError: Error | null = null;
+  for (const template of templates) {
+    if (template.source !== 'org') {
+      continue; // only reusable org templates are cleaned up
+    }
+    try {
+      await apiRequest('DELETE', `/templates/${encodeURIComponent(template.id)}`, true);
+      deleted += 1;
+    } catch (e) {
+      firstError = firstError ?? (e instanceof Error ? e : new Error('Delete failed.'));
+    }
+  }
+  if (deleted === 0 && firstError) {
+    throw firstError;
+  }
+  return deleted;
 }
 
 function detailPath(template: Pick<EmailTemplateSummary, 'id' | 'source'>): string {

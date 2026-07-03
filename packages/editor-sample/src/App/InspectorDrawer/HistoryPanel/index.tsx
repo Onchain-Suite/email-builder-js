@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   AddOutlined,
   DeleteOutlineOutlined,
+  DeleteSweepOutlined,
   HistoryOutlined,
   PublicOutlined,
   RefreshOutlined,
@@ -29,7 +30,13 @@ import {
 import { resetDocument } from '../../../documents/editor/EditorContext';
 import { deleteSnapshot, useDesignSnapshots } from '../../../documents/editor/localHistory';
 import EMPTY_EMAIL_MESSAGE from '../../../getConfiguration/sample/empty-email-message';
-import { EmailTemplateSummary, fetchTemplateDocument, listTemplates } from '../../api/emailTemplates';
+import {
+  deleteTemplates,
+  EmailTemplateSummary,
+  fetchTemplateDocument,
+  findDuplicateTemplates,
+  listTemplates,
+} from '../../api/emailTemplates';
 import { useApiSession } from '../../api/session';
 
 function formatDate(iso: string | null): string | null {
@@ -169,10 +176,48 @@ type TemplateSectionProps = {
   access: 'private' | 'public';
   loadingId: string | null;
   onOpen: (template: EmailTemplateSummary) => void;
+  requestConfirm?: (request: TConfirmRequest) => void;
 };
 
-function TemplateSection({ title, icon, emptyMessage, access, loadingId, onOpen }: TemplateSectionProps) {
+function TemplateSection({ title, icon, emptyMessage, access, loadingId, onOpen, requestConfirm }: TemplateSectionProps) {
   const [state, reload] = useTemplates(access);
+  const [cleanupBusy, setCleanupBusy] = useState(false);
+  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
+
+  const handleCleanup = async () => {
+    if (!requestConfirm) return;
+    setCleanupBusy(true);
+    setCleanupMessage(null);
+    try {
+      const { keep, remove } = await findDuplicateTemplates();
+      if (remove.length === 0) {
+        setCleanupMessage('No duplicates found — every template has a unique name.');
+        return;
+      }
+      requestConfirm({
+        title: `Delete ${remove.length} duplicate template${remove.length === 1 ? '' : 's'}?`,
+        message: `Templates sharing the same name will be removed, keeping only the most recent of each (${keep.length} kept). This cannot be undone.`,
+        confirmLabel: 'Delete duplicates',
+        action: () =>
+          void (async () => {
+            setCleanupBusy(true);
+            try {
+              const deleted = await deleteTemplates(remove);
+              setCleanupMessage(`Deleted ${deleted} duplicate${deleted === 1 ? '' : 's'}.`);
+              reload();
+            } catch (e) {
+              setCleanupMessage(e instanceof Error ? e.message : 'Cleanup failed.');
+            } finally {
+              setCleanupBusy(false);
+            }
+          })(),
+      });
+    } catch (e) {
+      setCleanupMessage(e instanceof Error ? e.message : 'Cleanup failed.');
+    } finally {
+      setCleanupBusy(false);
+    }
+  };
 
   let body: JSX.Element;
   switch (state.status) {
@@ -236,10 +281,20 @@ function TemplateSection({ title, icon, emptyMessage, access, loadingId, onOpen 
         <Typography variant="overline" color="text.secondary" sx={{ flexGrow: 1 }}>
           {title}
         </Typography>
+        {access === 'private' && requestConfirm && (
+          <IconButton size="small" onClick={() => void handleCleanup()} disabled={cleanupBusy} title="Remove duplicates (keeps the most recent of each name)">
+            {cleanupBusy ? <CircularProgress size={14} /> : <DeleteSweepOutlined fontSize="inherit" />}
+          </IconButton>
+        )}
         <IconButton size="small" onClick={reload} title="Refresh">
           <RefreshOutlined fontSize="inherit" />
         </IconButton>
       </Stack>
+      {cleanupMessage && (
+        <Alert severity="info" onClose={() => setCleanupMessage(null)} sx={{ mx: 1, mb: 1 }}>
+          {cleanupMessage}
+        </Alert>
+      )}
       {body}
     </Box>
   );
@@ -306,6 +361,7 @@ export default function HistoryPanel() {
         access="private"
         loadingId={loadingId}
         onOpen={handleOpen}
+        requestConfirm={setConfirmRequest}
       />
       <TemplateSection
         title="Public templates"
