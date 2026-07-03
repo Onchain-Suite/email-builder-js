@@ -19,6 +19,12 @@ export type EmailTemplateSummary = {
   updatedAt: string | null;
   category: string | null;
   isRecommended: boolean;
+  /**
+   * Builder document extracted from the LIST response, when present.
+   * Lets templates open without hitting the detail route (GET /templates/:id),
+   * which may not be on the backend's editor-token allowlist.
+   */
+  inlineDocument?: unknown;
 };
 
 async function apiRequest(method: 'GET' | 'DELETE', path: string, orgScoped: boolean): Promise<unknown> {
@@ -135,6 +141,7 @@ function toSummary(raw: unknown, source: TemplateSource): EmailTemplateSummary |
     updatedAt: str(record, ['updatedAt', 'updated_at', 'modifiedAt', 'createdAt', 'created_at']),
     category: str(record, ['category']),
     isRecommended: record.isRecommended === true,
+    inlineDocument: findDocumentCandidate(record) ?? undefined,
   };
 }
 
@@ -284,8 +291,17 @@ function detailPath(template: Pick<EmailTemplateSummary, 'id' | 'source'>): stri
  * builder schema. Throws with a user-readable message on failure.
  */
 export async function fetchTemplateDocument(
-  template: Pick<EmailTemplateSummary, 'id' | 'source'>
+  template: Pick<EmailTemplateSummary, 'id' | 'source'> & { inlineDocument?: unknown }
 ): Promise<TEditorConfiguration> {
+  // Prefer the document that came with the list response — avoids the
+  // detail route, which may reject editor-token auth.
+  if (template.inlineDocument) {
+    const inline = EditorConfigurationSchema.safeParse(template.inlineDocument);
+    if (inline.success && inline.data.root) {
+      return inline.data;
+    }
+  }
+
   const json = await apiGet(detailPath(template), template.source !== 'user');
   const candidate = findDocumentCandidate(json);
   if (!candidate) {
