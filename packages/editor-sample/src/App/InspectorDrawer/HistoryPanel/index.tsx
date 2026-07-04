@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   AddOutlined,
   DeleteSweepOutlined,
+  DriveFileRenameOutline,
   ExpandMoreOutlined,
   HistoryOutlined,
   PublicOutlined,
@@ -22,9 +23,11 @@ import {
   DialogTitle,
   IconButton,
   List,
+  ListItem,
   ListItemButton,
   ListItemText,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 
@@ -36,6 +39,7 @@ import {
   fetchTemplateDocument,
   findDuplicateTemplates,
   listTemplates,
+  renameTemplate,
 } from '../../api/emailTemplates';
 import { useApiSession } from '../../api/session';
 
@@ -83,6 +87,73 @@ function ConfirmDialog({ request, onClose }: { request: TConfirmRequest | null; 
   );
 }
 
+function RenameDialog({
+  template,
+  onClose,
+  onRenamed,
+}: {
+  template: EmailTemplateSummary;
+  onClose: () => void;
+  onRenamed: () => void;
+}) {
+  const [name, setName] = useState(template.name);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const trimmed = name.trim();
+  const canSave = trimmed.length > 0 && trimmed !== template.name && !busy;
+
+  const handleSubmit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await renameTemplate(template, trimmed);
+      onRenamed();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Rename failed.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Rename template</DialogTitle>
+      <form
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          if (canSave) {
+            void handleSubmit();
+          }
+        }}
+      >
+        <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 1.5 }}>
+              {error}
+            </Alert>
+          )}
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label="Template name"
+            value={name}
+            onChange={(ev) => setName(ev.target.value)}
+            disabled={busy}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="contained" type="submit" disabled={!canSave}>
+            {busy ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+}
+
 type SectionState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
@@ -114,13 +185,24 @@ type TemplateSectionProps = {
   loadingId: string | null;
   onOpen: (template: EmailTemplateSummary) => void;
   requestConfirm?: (request: TConfirmRequest) => void;
+  renameable?: boolean;
 };
 
-function TemplateSection({ title, icon, emptyMessage, access, loadingId, onOpen, requestConfirm }: TemplateSectionProps) {
+function TemplateSection({
+  title,
+  icon,
+  emptyMessage,
+  access,
+  loadingId,
+  onOpen,
+  requestConfirm,
+  renameable,
+}: TemplateSectionProps) {
   const [state, reload] = useTemplates(access);
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
+  const [renameTarget, setRenameTarget] = useState<EmailTemplateSummary | null>(null);
 
   const handleCleanup = async () => {
     if (!requestConfirm) return;
@@ -185,25 +267,40 @@ function TemplateSection({ title, icon, emptyMessage, access, loadingId, onOpen,
           <List dense disablePadding>
             {state.templates.map((template) => {
               const date = formatDate(template.updatedAt);
+              const canRename = renameable && template.source !== 'org-public';
               return (
-                <ListItemButton
+                <ListItem
                   key={template.id}
-                  disabled={loadingId !== null}
-                  onClick={() => onOpen(template)}
+                  disablePadding
+                  secondaryAction={
+                    canRename ? (
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        title="Rename"
+                        disabled={loadingId !== null}
+                        onClick={() => setRenameTarget(template)}
+                      >
+                        <DriveFileRenameOutline fontSize="inherit" />
+                      </IconButton>
+                    ) : undefined
+                  }
                 >
-                  <ListItemText
-                    primary={
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="body2" noWrap>
-                          {template.name}
-                        </Typography>
-                        {template.isRecommended && <Chip label="Recommended" size="small" color="primary" />}
-                      </Stack>
-                    }
-                    secondary={[date, template.category].filter(Boolean).join(' · ') || null}
-                  />
-                  {loadingId === template.id && <CircularProgress size={16} />}
-                </ListItemButton>
+                  <ListItemButton disabled={loadingId !== null} onClick={() => onOpen(template)}>
+                    <ListItemText
+                      primary={
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2" noWrap>
+                            {template.name}
+                          </Typography>
+                          {template.isRecommended && <Chip label="Recommended" size="small" color="primary" />}
+                        </Stack>
+                      }
+                      secondary={[date, template.category].filter(Boolean).join(' · ') || null}
+                    />
+                    {loadingId === template.id && <CircularProgress size={16} />}
+                  </ListItemButton>
+                </ListItem>
               );
             })}
           </List>
@@ -214,6 +311,16 @@ function TemplateSection({ title, icon, emptyMessage, access, loadingId, onOpen,
 
   return (
     <Box>
+      {renameTarget && (
+        <RenameDialog
+          template={renameTarget}
+          onClose={() => setRenameTarget(null)}
+          onRenamed={() => {
+            setRenameTarget(null);
+            reload();
+          }}
+        />
+      )}
       <Stack
         direction="row"
         alignItems="center"
@@ -344,6 +451,7 @@ export default function HistoryPanel() {
         loadingId={loadingId}
         onOpen={handleOpen}
         requestConfirm={setConfirmRequest}
+        renameable
       />
       <TemplateSection
         title="Public templates"
