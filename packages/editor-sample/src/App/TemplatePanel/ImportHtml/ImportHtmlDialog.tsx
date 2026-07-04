@@ -65,7 +65,8 @@ export default function ImportHtmlDialog({ onClose }: ImportHtmlDialogProps) {
           <Typography color="text.secondary" paragraph>
             Paste the full HTML of an email (or a fragment). It is imported verbatim into HTML blocks — preview it,
             reorder or delete sections, and export as JSON or HTML. To edit a section&rsquo;s markup, select it on the
-            canvas and use the inspector.
+            canvas and use the inspector. Personalization tags like {'{{ profile.firstName }}'} are kept as-is and can
+            be inserted from the inspector&rsquo;s Variable Tags picker; they are replaced per recipient at send time.
           </Typography>
           {statusAlert}
           <TextField

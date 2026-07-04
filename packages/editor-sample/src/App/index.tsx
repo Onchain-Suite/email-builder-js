@@ -3,7 +3,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Backdrop, Button, CircularProgress, Snackbar, Stack, useTheme } from '@mui/material';
 import { renderToStaticMarkup } from '@usewaypoint/email-builder';
 
-import { resetDocument, useDocument, useSamplesDrawerOpen } from '../documents/editor/EditorContext';
+import {
+  EMPTY_PUSH_CONTENT,
+  resetDocument,
+  setPushContent,
+  toPushPayload,
+  TPushContent,
+  useDocument,
+  usePushContent,
+  useSamplesDrawerOpen,
+} from '../documents/editor/EditorContext';
 import { VariablesProvider } from '../documents/editor/VariablesContext';
 
 import makeResponsiveHtml from './makeResponsiveHtml';
@@ -62,9 +71,31 @@ function useDrawerTransition(cssProperty: 'margin-left' | 'margin-right', open: 
 
 import PostMessageListener from './PostMessageListener';
 
+// Reads a saved `push` payload (in-app notification) out of a campaign
+// response, tolerating the same wrapper shapes as the document itself.
+function extractPushContent(data: any): TPushContent | null {
+  const payload = (data?.data ?? data?.payload ?? data) as any;
+  const push = payload?.push;
+  if (typeof push !== 'object' || push === null) {
+    return null;
+  }
+  const title = typeof push.title === 'string' ? push.title : '';
+  const body = typeof push.body === 'string' ? push.body : '';
+  if (!title && !body) {
+    return null;
+  }
+  return {
+    title,
+    body,
+    ctaLabel: typeof push.ctaLabel === 'string' ? push.ctaLabel : '',
+    ctaUrl: typeof push.ctaUrl === 'string' ? push.ctaUrl : '',
+  };
+}
+
 export default function App() {
   const samplesDrawerOpen = useSamplesDrawerOpen();
   const document = useDocument();
+  const pushContent = usePushContent();
 
   const marginLeftTransition = useDrawerTransition('margin-left', samplesDrawerOpen);
 
@@ -357,7 +388,8 @@ export default function App() {
   useEffect(() => {
     if (!campaignId || !apiUrl) return;
     if (effectiveEmbedded && (!token || !orgId)) return;
-    const serialized = JSON.stringify(document);
+    const push = toPushPayload(pushContent);
+    const serialized = JSON.stringify({ document, push: push ?? null });
     if (serialized === lastAutosavedRef.current) return;
 
     const timer = window.setTimeout(async () => {
@@ -374,7 +406,7 @@ export default function App() {
         const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/editor/saved`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ html, json, textVersion }),
+          body: JSON.stringify({ html, json, textVersion, push: push ?? null }),
           credentials: requestCredentials,
         });
         if (res.ok) {
@@ -385,7 +417,7 @@ export default function App() {
       }
     }, 4000);
     return () => window.clearTimeout(timer);
-  }, [document, campaignId, apiUrl, token, orgId, effectiveEmbedded, requestCredentials]);
+  }, [document, pushContent, campaignId, apiUrl, token, orgId, effectiveEmbedded, requestCredentials]);
 
   useEffect(() => {
     let cancelled = false;
@@ -427,6 +459,7 @@ export default function App() {
         // Prefer the latest autosaved editor draft; fall back to the
         // canonical persisted email document if there is no usable draft.
         let fetchedDocument: any = null;
+        let fetchedPush: TPushContent | null = null;
         try {
           const draftRes = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/editor/content`, {
             method: 'GET',
@@ -435,7 +468,9 @@ export default function App() {
             signal: controller.signal,
           });
           if (draftRes.ok) {
-            fetchedDocument = extractDocument(await draftRes.json().catch(() => null));
+            const draftData = await draftRes.json().catch(() => null);
+            fetchedDocument = extractDocument(draftData);
+            fetchedPush = extractPushContent(draftData);
           }
         } catch {
           // Draft endpoint unavailable — use the canonical document below.
@@ -472,11 +507,17 @@ export default function App() {
             throw new Error(data?.error?.message ?? data?.message ?? 'Failed to load template.');
           }
           fetchedDocument = extractDocument(data);
+          fetchedPush = fetchedPush ?? extractPushContent(data);
         }
 
         if (!cancelled && fetchedDocument) {
-          lastAutosavedRef.current = JSON.stringify(fetchedDocument);
+          const loadedPush = fetchedPush ?? EMPTY_PUSH_CONTENT;
+          lastAutosavedRef.current = JSON.stringify({
+            document: fetchedDocument,
+            push: toPushPayload(loadedPush) ?? null,
+          });
           resetDocument(fetchedDocument);
+          setPushContent(loadedPush);
         }
       } catch (e) {
         if (!cancelled) {
@@ -526,6 +567,7 @@ export default function App() {
 
     try {
       const { html, textVersion, json } = buildEmailContent(document);
+      const push = toPushPayload(pushContent);
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
       if (token) {
@@ -543,6 +585,9 @@ export default function App() {
           html,
           json,
           textVersion,
+          // Explicit null clears a previously saved push; the backend treats
+          // an absent field as "leave unchanged".
+          push: push ?? null,
         }),
         credentials: requestCredentials,
       });
@@ -568,7 +613,10 @@ export default function App() {
       setSuccessMessage('Template saved.');
 
       if (effectiveEmbedded) {
-        postToParent({ type: 'EMAIL_SAVED', payload: { campaignId, document: json, html, textVersion } });
+        postToParent({
+          type: 'EMAIL_SAVED',
+          payload: { campaignId, document: json, html, textVersion, push: push ?? null },
+        });
       }
 
       // Keep an already-linked reusable template in sync; new campaigns are

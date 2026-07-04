@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Code2, Braces, PencilLine, Eye } from 'lucide-react';
+import { BellRing, Code2, Braces, PencilLine, Eye } from 'lucide-react';
 import { Tab, Tabs, Tooltip } from '@mui/material';
 
 import { setSelectedMainTab, useSelectedMainTab } from '../../documents/editor/EditorContext';
@@ -13,6 +13,7 @@ export default function MainTabsGroup() {
       case 'preview':
       case 'editor':
       case 'html':
+      case 'push':
         setSelectedMainTab(v);
         return;
       default:
@@ -51,6 +52,14 @@ export default function MainTabsGroup() {
         label={
           <Tooltip title="JSON output">
             <Braces size={16} />
+          </Tooltip>
+        }
+      />
+      <Tab
+        value="push"
+        label={
+          <Tooltip title="In-app push notification">
+            <BellRing size={16} />
           </Tooltip>
         }
       />
