@@ -19,6 +19,7 @@ import ToggleSamplesPanelButton from '../SamplesDrawer/ToggleSamplesPanelButton'
 
 import DownloadJson from './DownloadJson';
 import HtmlPanel from './HtmlPanel';
+import ImportHtml from './ImportHtml';
 import ImportJson from './ImportJson';
 import JsonPanel from './JsonPanel';
 import MainTabsGroup from './MainTabsGroup';
@@ -341,6 +342,7 @@ export default function TemplatePanel() {
         {/* Right zone: file actions — import/export, share, fullscreen */}
         <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end" sx={{ flex: 1, minWidth: 0 }}>
           <ImportJson />
+          <ImportHtml />
           <DownloadJson />
           <Divider orientation="vertical" flexItem sx={{ my: 1.25, mx: 0.5 }} />
           <ShareButton />

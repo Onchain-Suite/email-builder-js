@@ -27,7 +27,12 @@ export type EmailTemplateSummary = {
   inlineDocument?: unknown;
 };
 
-async function apiRequest(method: 'GET' | 'DELETE', path: string, orgScoped: boolean): Promise<unknown> {
+async function apiRequest(
+  method: 'GET' | 'DELETE' | 'PUT',
+  path: string,
+  orgScoped: boolean,
+  body?: unknown
+): Promise<unknown> {
   const endpoint = path.split('?')[0];
   const { token, orgId, campaignId } = getApiSession();
 
@@ -44,7 +49,12 @@ async function apiRequest(method: 'GET' | 'DELETE', path: string, orgScoped: boo
     fetch(url, {
       method,
       credentials: apiCredentials(),
-      headers: { Accept: 'application/json', ...headers },
+      headers: {
+        Accept: 'application/json',
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...headers,
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
   const editorHeaders: Record<string, string> | null = token
@@ -272,6 +282,21 @@ export async function deleteTemplates(templates: EmailTemplateSummary[]): Promis
     throw firstError;
   }
   return deleted;
+}
+
+/**
+ * Renames a template you own. Org templates go through `PUT /templates/{id}`,
+ * user templates through `PUT /email-templates/{id}` — both accept `{ name }`.
+ * Public library entries are admin-managed and cannot be renamed here.
+ */
+export async function renameTemplate(
+  template: Pick<EmailTemplateSummary, 'id' | 'source'>,
+  name: string
+): Promise<void> {
+  if (template.source === 'org-public') {
+    throw new Error('Public library templates cannot be renamed.');
+  }
+  await apiRequest('PUT', detailPath(template), template.source !== 'user', { name });
 }
 
 function detailPath(template: Pick<EmailTemplateSummary, 'id' | 'source'>): string {
