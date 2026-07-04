@@ -3,7 +3,6 @@ node_modules
 
 /docs/
 
-/API_ENDPOINTS.md
 
 # misc
 .esbuild
@@ -16,3 +15,5 @@ yarn-error.log*
 
 dist
 .claude/
+
+API_ENDPOINTS.md
