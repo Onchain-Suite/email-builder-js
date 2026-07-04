@@ -23,6 +23,7 @@ import ImportHtml from './ImportHtml';
 import ImportJson from './ImportJson';
 import JsonPanel from './JsonPanel';
 import MainTabsGroup from './MainTabsGroup';
+import PushPanel from './PushPanel';
 import ShareButton from './ShareButton';
 
 export default function TemplatePanel() {
@@ -263,6 +264,8 @@ export default function TemplatePanel() {
         return <HtmlPanel />;
       case 'json':
         return <JsonPanel />;
+      case 'push':
+        return <PushPanel />;
     }
   };
 

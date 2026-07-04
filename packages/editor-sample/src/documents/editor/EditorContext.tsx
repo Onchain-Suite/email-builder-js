@@ -4,15 +4,28 @@ import getConfiguration from '../../getConfiguration';
 
 import { TEditorBlock, TEditorConfiguration } from './core';
 
+export type TPushContent = {
+  title: string;
+  body: string;
+  ctaLabel: string;
+  ctaUrl: string;
+};
+
+export const EMPTY_PUSH_CONTENT: TPushContent = { title: '', body: '', ctaLabel: '', ctaUrl: '' };
+
 type TValue = {
   document: TEditorConfiguration;
 
   past: TEditorConfiguration[];
   future: TEditorConfiguration[];
 
+  // Companion in-app push notification for this campaign. Not part of the
+  // block document; saved alongside it as the `push` field.
+  pushContent: TPushContent;
+
   selectedBlockId: string | null;
   selectedSidebarTab: 'blocks' | 'block-configuration' | 'styles' | 'history';
-  selectedMainTab: 'editor' | 'preview' | 'json' | 'html';
+  selectedMainTab: 'editor' | 'preview' | 'json' | 'html' | 'push';
   selectedScreenSize: 'desktop' | 'mobile';
 
   inspectorDrawerOpen: boolean;
@@ -23,6 +36,7 @@ const editorStateStore = create<TValue>(() => ({
   document: getConfiguration(window.location.hash),
   past: [],
   future: [],
+  pushContent: EMPTY_PUSH_CONTENT,
   selectedBlockId: null,
   selectedSidebarTab: 'blocks',
   selectedMainTab: 'editor',
@@ -70,6 +84,32 @@ export function setSelectedMainTab(selectedMainTab: TValue['selectedMainTab']) {
 
 export function useSelectedSidebarTab() {
   return editorStateStore((s) => s.selectedSidebarTab);
+}
+
+export function usePushContent() {
+  return editorStateStore((s) => s.pushContent);
+}
+
+export function setPushContent(pushContent: TPushContent) {
+  return editorStateStore.setState({ pushContent });
+}
+
+/** True when the push has any content worth sending/saving. */
+export function isPushContentPresent(pushContent: TPushContent): boolean {
+  return pushContent.title.trim().length > 0 || pushContent.body.trim().length > 0;
+}
+
+/** The `push` field for save payloads, or undefined when not configured. */
+export function toPushPayload(pushContent: TPushContent) {
+  if (!isPushContentPresent(pushContent)) {
+    return undefined;
+  }
+  return {
+    title: pushContent.title.trim(),
+    body: pushContent.body.trim(),
+    ctaLabel: pushContent.ctaLabel.trim() || undefined,
+    ctaUrl: pushContent.ctaUrl.trim() || undefined,
+  };
 }
 
 export function useInspectorDrawerOpen() {
