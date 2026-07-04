@@ -1,20 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  Alert,
-  Backdrop,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Alert, Backdrop, Button, CircularProgress, Snackbar, Stack, useTheme } from '@mui/material';
 import { renderToStaticMarkup } from '@usewaypoint/email-builder';
 
 import { resetDocument, useDocument, useSamplesDrawerOpen } from '../documents/editor/EditorContext';
@@ -165,10 +151,6 @@ export default function App() {
 
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
-  const [templateNamePrompt, setTemplateNamePrompt] = useState<{
-    content: { html: string; json: any; textVersion: string };
-  } | null>(null);
-  const [templateNameInput, setTemplateNameInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [savedReusableTemplateId, setSavedReusableTemplateId] = useState<string | null>(null);
@@ -589,20 +571,11 @@ export default function App() {
         postToParent({ type: 'EMAIL_SAVED', payload: { campaignId, document: json, html, textVersion } });
       }
 
-      if (!orgId) {
-        setSuccessMessage('Campaign saved. Reusable template skipped because orgId is missing.');
-        return;
+      // Keep an already-linked reusable template in sync; new campaigns are
+      // saved without prompting for a template name.
+      if (orgId && savedReusableTemplateId) {
+        await persistReusableTemplate({ html, json, textVersion });
       }
-
-      if (!savedReusableTemplateId) {
-        // Ask for a template name with an in-app dialog (window.prompt shows
-        // ugly "embedded page says" chrome inside iframes).
-        setTemplateNameInput(savedReusableTemplateName ?? `Campaign ${campaignId} Template`);
-        setTemplateNamePrompt({ content: { html, json, textVersion } });
-        return;
-      }
-
-      await persistReusableTemplate({ html, json, textVersion }, null);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to save template.';
       setErrorMessage(message);
@@ -611,11 +584,10 @@ export default function App() {
     }
   };
 
-  const persistReusableTemplate = async (
-    content: { html: string; json: any; textVersion: string },
-    requestedName: string | null
-  ) => {
-    if (!campaignId || !apiUrl || !orgId) return;
+  // Updates the reusable template this campaign is already linked to
+  // (from localStorage), keeping it in sync with the campaign email.
+  const persistReusableTemplate = async (content: { html: string; json: any; textVersion: string }) => {
+    if (!campaignId || !apiUrl || !orgId || !savedReusableTemplateId) return;
 
     const templateHeaders: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
     templateHeaders['x-org-id'] = orgId;
@@ -624,122 +596,31 @@ export default function App() {
       templateHeaders['x-editor-token'] = token;
     }
 
-    let reusableTemplateId = savedReusableTemplateId;
-    let reusableTemplateName = savedReusableTemplateName;
+    const updateRes = await fetch(`${apiUrl}/templates/${encodeURIComponent(savedReusableTemplateId)}`, {
+      method: 'PUT',
+      headers: templateHeaders,
+      body: JSON.stringify({
+        name: savedReusableTemplateName ?? undefined,
+        content,
+      }),
+      credentials: requestCredentials,
+    });
 
-    if (!reusableTemplateId && requestedName) {
-      // Deduplicate: if a template with this exact name already exists
-      // (e.g. localStorage was cleared or partitioned in the iframe),
-      // update it instead of creating yet another copy.
-      try {
-        const searchRes = await fetch(
-          `${apiUrl}/templates?search=${encodeURIComponent(requestedName)}&limit=50`,
-          { headers: templateHeaders, credentials: requestCredentials }
-        );
-        if (searchRes.ok) {
-          const searchData = (await searchRes.json().catch(() => null)) as any;
-          const rawList = (searchData?.data ?? searchData?.templates ?? searchData?.items ?? searchData) as any;
-          const list: any[] = Array.isArray(rawList) ? rawList : Array.isArray(rawList?.data) ? rawList.data : [];
-          const wanted = requestedName.trim().toLowerCase();
-          const match = list.find(
-            (t) => typeof t?.name === 'string' && t.name.trim().toLowerCase() === wanted && (t.id ?? t._id)
-          );
-          if (match) {
-            reusableTemplateId = String(match.id ?? match._id);
-            reusableTemplateName = String(match.name);
-          }
-        }
-      } catch {
-        // Search is best-effort; fall through to create.
-      }
-    }
-
-    if (!reusableTemplateId) {
-      if (!requestedName) {
-        setSuccessMessage('Campaign saved. Reusable template was skipped.');
-        return;
-      }
-
-      const createRes = await fetch(`${apiUrl}/templates`, {
-        method: 'POST',
-        headers: templateHeaders,
-        body: JSON.stringify({
-          name: requestedName,
-          content,
-        }),
-        credentials: requestCredentials,
-      });
-
-      if (!createRes.ok) {
-        throw new Error(
-          `Campaign saved, but reusable template creation failed: ${(await buildErrorFromResponse(createRes)).message}`
-        );
-      }
-
-      const createData = (await createRes.json().catch(() => null)) as any;
-      const createPayload = (createData?.data ?? createData?.payload ?? createData) as any;
-      reusableTemplateId =
-        normalizeNonEmptyString(createPayload?.id) ??
-        normalizeNonEmptyString(createPayload?.templateId) ??
-        normalizeNonEmptyString(createPayload?.template?.id);
-      reusableTemplateName =
-        normalizeNonEmptyString(createPayload?.name) ??
-        normalizeNonEmptyString(createPayload?.template?.name) ??
-        requestedName;
-
-      if (!reusableTemplateId) {
-        throw new Error('Campaign saved, but reusable template creation did not return a template id.');
-      }
-    } else {
-      const updateRes = await fetch(`${apiUrl}/templates/${encodeURIComponent(reusableTemplateId)}`, {
-        method: 'PUT',
-        headers: templateHeaders,
-        body: JSON.stringify({
-          name: reusableTemplateName ?? undefined,
-          content,
-        }),
-        credentials: requestCredentials,
-      });
-
-      if (!updateRes.ok) {
-        throw new Error(
-          `Campaign saved, but reusable template update failed: ${(await buildErrorFromResponse(updateRes)).message}`
-        );
-      }
+    if (!updateRes.ok) {
+      throw new Error(
+        `Campaign saved, but reusable template update failed: ${(await buildErrorFromResponse(updateRes)).message}`
+      );
     }
 
     window.localStorage.setItem(
       getTemplateStorageKey(campaignId),
-      JSON.stringify({ id: reusableTemplateId, name: reusableTemplateName })
+      JSON.stringify({ id: savedReusableTemplateId, name: savedReusableTemplateName })
     );
-    setSavedReusableTemplateId(reusableTemplateId);
-    setSavedReusableTemplateName(reusableTemplateName);
     setSuccessMessage(
-      reusableTemplateName
-        ? `Campaign and reusable template "${reusableTemplateName}" saved.`
+      savedReusableTemplateName
+        ? `Campaign and reusable template "${savedReusableTemplateName}" saved.`
         : 'Campaign and reusable template saved.'
     );
-  };
-
-  const skipTemplateName = () => {
-    setTemplateNamePrompt(null);
-    setSuccessMessage('Campaign saved. Reusable template was skipped.');
-  };
-
-  const submitTemplateName = async () => {
-    if (!templateNamePrompt) return;
-    const name = templateNameInput.trim();
-    if (!name) return;
-    const { content } = templateNamePrompt;
-    setTemplateNamePrompt(null);
-    setSavingTemplate(true);
-    try {
-      await persistReusableTemplate(content, name);
-    } catch (e) {
-      setErrorMessage(e instanceof Error ? e.message : 'Failed to save template.');
-    } finally {
-      setSavingTemplate(false);
-    }
   };
 
   return (
@@ -771,37 +652,6 @@ export default function App() {
       >
         {savingTemplate ? 'Saving…' : 'Save Template'}
       </Button>
-
-      <Dialog open={templateNamePrompt !== null} onClose={skipTemplateName} maxWidth="xs">
-        <DialogTitle>Save as reusable template</DialogTitle>
-        <form
-          onSubmit={(ev) => {
-            ev.preventDefault();
-            void submitTemplateName();
-          }}
-        >
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary" paragraph>
-              Give this design a name so you can reuse it in other campaigns.
-            </Typography>
-            <TextField
-              autoFocus
-              fullWidth
-              label="Template name"
-              value={templateNameInput}
-              onChange={(ev) => setTemplateNameInput(ev.target.value)}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button type="button" onClick={skipTemplateName}>
-              Skip
-            </Button>
-            <Button type="submit" variant="contained" disabled={templateNameInput.trim().length === 0}>
-              Save template
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
 
       <Backdrop open={loadingTemplate} sx={{ zIndex: (theme) => theme.zIndex.modal + 1 }}>
         <Stack direction="row" alignItems="center" gap={2}>
