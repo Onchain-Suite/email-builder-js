@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Maximize2, Minimize2, Monitor, Redo2, Smartphone, Undo2 } from 'lucide-react';
+import { Monitor, Redo2, Smartphone, Undo2 } from 'lucide-react';
 import { Box, Divider, IconButton, Paper, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
 import { Reader } from '@usewaypoint/email-builder';
 
@@ -17,14 +17,10 @@ import {
 } from '../../documents/editor/EditorContext';
 import ToggleSamplesPanelButton from '../SamplesDrawer/ToggleSamplesPanelButton';
 
-import DownloadJson from './DownloadJson';
-import HtmlPanel from './HtmlPanel';
 import ImportHtml from './ImportHtml';
 import ImportJson from './ImportJson';
-import JsonPanel from './JsonPanel';
 import MainTabsGroup from './MainTabsGroup';
 import PushPanel from './PushPanel';
-import ShareButton from './ShareButton';
 
 export default function TemplatePanel() {
   const document = useDocument();
@@ -260,10 +256,6 @@ export default function TemplatePanel() {
             </Paper>
           </Box>
         );
-      case 'html':
-        return <HtmlPanel />;
-      case 'json':
-        return <JsonPanel />;
       case 'push':
         return <PushPanel />;
     }
@@ -342,18 +334,11 @@ export default function TemplatePanel() {
           </ToggleButtonGroup>
         </Stack>
 
-        {/* Right zone: file actions — import/export, share, fullscreen */}
+        {/* Right zone: file actions — import only; export/share/fullscreen
+            live in the host app */}
         <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end" sx={{ flex: 1, minWidth: 0 }}>
           <ImportJson />
           <ImportHtml />
-          <DownloadJson />
-          <Divider orientation="vertical" flexItem sx={{ my: 1.25, mx: 0.5 }} />
-          <ShareButton />
-          <Tooltip title={isFullscreenActive ? 'Exit full screen' : 'Full screen'}>
-            <IconButton onClick={handleToggleFullscreen} color={isFullscreenActive ? 'primary' : 'default'}>
-              {isFullscreenActive ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </IconButton>
-          </Tooltip>
         </Stack>
       </Stack>
       <Box
