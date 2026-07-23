@@ -9,7 +9,7 @@ import HistoryPanel from '../InspectorDrawer/HistoryPanel';
 import StylesPanel from '../InspectorDrawer/StylesPanel';
 import BlocksPanel from './BlocksPanel';
 
-export const SAMPLES_DRAWER_WIDTH = 260;
+export const SAMPLES_DRAWER_WIDTH = 340;
 
 export default function SamplesDrawer() {
   const samplesDrawerOpen = useSamplesDrawerOpen();
@@ -40,8 +40,8 @@ export default function SamplesDrawer() {
       sx={{
         width: samplesDrawerOpen ? SAMPLES_DRAWER_WIDTH : 0,
         '& .MuiDrawer-paper': {
-          top: 'var(--editor-top-offset, 56px)',
-          height: 'calc(100% - var(--editor-top-offset, 56px))',
+          top: 'var(--editor-top-offset, 0px)',
+          height: 'calc(100% - var(--editor-top-offset, 0px))',
           backgroundImage: 'none',
           borderRight: '1px solid',
           borderColor: 'divider',

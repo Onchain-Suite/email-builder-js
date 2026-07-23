@@ -19,7 +19,6 @@ import makeResponsiveHtml from './makeResponsiveHtml';
 
 import { setApiSession } from './api/session';
 import SamplesDrawer, { SAMPLES_DRAWER_WIDTH } from './SamplesDrawer';
-import TopBar from './TopBar';
 import TemplatePanel from './TemplatePanel';
 
 function renderTextVersionFromHtml(html: string) {
@@ -697,7 +696,6 @@ export default function App() {
   return (
     <VariablesProvider apiBaseUrl={apiUrl} token={token} orgId={orgId} campaignId={campaignId} embedded={effectiveEmbedded}>
       <PostMessageListener />
-      {!effectiveEmbedded ? <TopBar /> : null}
       <SamplesDrawer />
 
       <Stack
