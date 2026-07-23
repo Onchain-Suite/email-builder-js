@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { Monitor, Redo2, Smartphone, Undo2 } from 'lucide-react';
 import { Box, Divider, IconButton, Paper, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
@@ -64,10 +64,8 @@ export default function TemplatePanel() {
     return null;
   }, []);
 
-  const baseTopOffsetPx = useMemo(() => {
-    const embeddedValue = new URLSearchParams(window.location.search).get('embedded');
-    return embeddedValue === 'true' ? 0 : 56;
-  }, []);
+  // No app chrome above the editor — the canvas starts at the top of the frame.
+  const baseTopOffsetPx = 0;
 
   const getFullscreenElement = () => {
     const d = window.document as any;
