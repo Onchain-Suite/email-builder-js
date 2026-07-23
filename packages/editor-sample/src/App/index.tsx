@@ -153,10 +153,24 @@ export default function App() {
 
   const hostOriginAllowlist = useMemo(() => {
     const raw = (import.meta.env.VITE_HOST_ORIGIN_ALLOWLIST ?? import.meta.env.VITE_HOST_ORIGINS ?? '') as string;
-    return raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
+    return (
+      raw
+        // Tolerate a value pasted as "KEY=value" into the env dashboard —
+        // that exact mistake shipped once and blanked the embedded editor
+        // (postMessage throws on a non-origin target).
+        .replace(/^\s*VITE_HOST_ORIGINS?(?:_ALLOWLIST)?\s*=\s*/i, '')
+        .split(',')
+        .map((s) => s.trim().replace(/^["'`]+|["'`]+$/g, ''))
+        .filter(Boolean)
+        .map((s) => {
+          try {
+            return new URL(s).origin;
+          } catch {
+            return null;
+          }
+        })
+        .filter((s): s is string => s !== null)
+    );
   }, []);
 
   const [embedded, setEmbedded] = useState(initialEmbedded);
@@ -265,12 +279,21 @@ export default function App() {
   const postToParent = useCallback(
     (message: any) => {
       if (!effectiveEmbedded) return;
+      // postMessage throws synchronously on a malformed target origin; never
+      // let one bad allowlist entry take down the whole app.
+      const safePost = (origin: string) => {
+        try {
+          window.parent.postMessage(message, origin);
+        } catch {
+          // Skip invalid origins.
+        }
+      };
       if (parentOrigin) {
-        window.parent.postMessage(message, parentOrigin);
+        safePost(parentOrigin);
         return;
       }
       for (const origin of hostOriginAllowlist) {
-        window.parent.postMessage(message, origin);
+        safePost(origin);
       }
     },
     [effectiveEmbedded, hostOriginAllowlist, parentOrigin]
