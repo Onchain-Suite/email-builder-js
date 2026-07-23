@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
 
-import { Box, Stack, TextField } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { HtmlProps, HtmlPropsSchema } from '@usewaypoint/block-html';
 
 import BaseSidebarPanel from './helpers/BaseSidebarPanel';
+import CodeEditor from './helpers/inputs/CodeEditor';
 import VariableTagButton from './helpers/inputs/VariableTagPicker';
 import MultiStylePropertyPanel from './helpers/style-inputs/MultiStylePropertyPanel';
 
@@ -13,7 +14,7 @@ type HtmlSidebarPanelProps = {
 };
 export default function HtmlSidebarPanel({ data, setData }: HtmlSidebarPanelProps) {
   const [, setErrors] = useState<Zod.ZodError | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const updateData = (d: unknown) => {
     const res = HtmlPropsSchema.safeParse(d);
@@ -41,20 +42,17 @@ export default function HtmlSidebarPanel({ data, setData }: HtmlSidebarPanelProp
   return (
     <BaseSidebarPanel title="Html block">
       <Box>
-        <Stack direction="row" justifyContent="flex-end" mb={1}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={0.75}>
+          <Typography fontSize={13} fontWeight={600} color="text.secondary">
+            Content
+          </Typography>
           <VariableTagButton onInsert={insertTagAtCursor} />
         </Stack>
-        <TextField
-          label="Content"
-          fullWidth
-          multiline
-          minRows={8}
-          maxRows={24}
-          variant="outlined"
+        <CodeEditor
+          ref={inputRef}
           value={data.props?.contents ?? ''}
-          onChange={(e) => updateData({ ...data, props: { ...data.props, contents: e.target.value } })}
-          inputRef={inputRef}
-          InputProps={{ sx: { fontFamily: 'monospace', fontSize: 12 } }}
+          onChange={(contents) => updateData({ ...data, props: { ...data.props, contents } })}
+          placeholder="<p>Your custom HTML…</p>"
         />
       </Box>
       <MultiStylePropertyPanel

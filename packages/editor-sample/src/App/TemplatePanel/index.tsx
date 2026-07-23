@@ -18,7 +18,6 @@ import {
 import ToggleSamplesPanelButton from '../SamplesDrawer/ToggleSamplesPanelButton';
 
 import ImportHtml from './ImportHtml';
-import ImportJson from './ImportJson';
 import MainTabsGroup from './MainTabsGroup';
 import PushPanel from './PushPanel';
 
@@ -334,10 +333,9 @@ export default function TemplatePanel() {
           </ToggleButtonGroup>
         </Stack>
 
-        {/* Right zone: file actions — import only; export/share/fullscreen
+        {/* Right zone: file actions — HTML import only; export/share/fullscreen
             live in the host app */}
         <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end" sx={{ flex: 1, minWidth: 0 }}>
-          <ImportJson />
           <ImportHtml />
         </Stack>
       </Stack>
