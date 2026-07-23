@@ -9,11 +9,12 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  TextField,
+  FormHelperText,
   Typography,
 } from '@mui/material';
 
 import { resetDocument } from '../../../documents/editor/EditorContext';
+import CodeEditor from '../../InspectorDrawer/ConfigurationPanel/input-panels/helpers/inputs/CodeEditor';
 
 import htmlToDocument, { THtmlImportResult } from './htmlToDocument';
 
@@ -69,17 +70,8 @@ export default function ImportHtmlDialog({ onClose }: ImportHtmlDialogProps) {
             be inserted from the inspector&rsquo;s Variable Tags picker; they are replaced per recipient at send time.
           </Typography>
           {statusAlert}
-          <TextField
-            value={value}
-            onChange={(ev) => setValue(ev.currentTarget.value)}
-            placeholder="<html>…</html>"
-            helperText="This will override your current template."
-            variant="outlined"
-            fullWidth
-            rows={12}
-            multiline
-            InputProps={{ sx: { fontFamily: 'monospace', fontSize: 13 } }}
-          />
+          <CodeEditor value={value} onChange={setValue} rows={16} placeholder="<html>…</html>" allowExpand={false} />
+          <FormHelperText>This will override your current template.</FormHelperText>
           <FormControlLabel
             control={<Checkbox checked={split} onChange={(ev) => setSplit(ev.target.checked)} />}
             label="Split into sections (lets you reorder and delete parts of the email)"
