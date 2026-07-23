@@ -1,16 +1,7 @@
 import React, { useRef, useState } from 'react';
 
 import { BellRing } from 'lucide-react';
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 
 import {
   EMPTY_PUSH_CONTENT,
@@ -20,7 +11,6 @@ import {
   usePushContent,
 } from '../../../documents/editor/EditorContext';
 import VariableTagButton from '../../InspectorDrawer/ConfigurationPanel/input-panels/helpers/inputs/VariableTagPicker';
-import { sendTestPush } from '../../api/inappPush';
 
 const TITLE_SOFT_LIMIT = 65;
 const BODY_SOFT_LIMIT = 180;
@@ -40,11 +30,10 @@ function ToastPreview({ push }: { push: TPushContent }) {
         background:
           'radial-gradient(rgba(17,24,39,0.06) 1px, transparent 1px) 0 0 / 16px 16px, linear-gradient(180deg, #FAFAFB, #F2F3F6)',
         p: 2,
-        pt: 6,
         minHeight: 260,
         display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'flex-end',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       <Paper
@@ -99,10 +88,6 @@ export default function PushPanel() {
   const inputRefs = useRef<Partial<Record<FieldKey, HTMLInputElement | null>>>({});
   const [focusedField, setFocusedField] = useState<FieldKey>('body');
 
-  const [testWallet, setTestWallet] = useState('');
-  const [testBusy, setTestBusy] = useState(false);
-  const [testResult, setTestResult] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
-
   const update = (patch: Partial<TPushContent>) => setPushContent({ ...push, ...patch });
 
   const insertTagAtCursor = (tagValue: string) => {
@@ -127,36 +112,12 @@ export default function PushPanel() {
     onChange: (ev: React.ChangeEvent<HTMLInputElement>) => update({ [key]: ev.target.value }),
   });
 
-  const canTest = isPushContentPresent(push) && testWallet.trim().length > 0 && !testBusy;
-
-  const handleTestSend = async () => {
-    setTestBusy(true);
-    setTestResult(null);
-    try {
-      await sendTestPush({
-        walletAddress: testWallet.trim(),
-        title: push.title.trim(),
-        body: push.body.trim(),
-        ctaLabel: push.ctaLabel.trim() || undefined,
-        ctaUrl: push.ctaUrl.trim() || undefined,
-      });
-      setTestResult({
-        severity: 'success',
-        message: 'Test push sent. It appears live anywhere that wallet is connected through the SDK.',
-      });
-    } catch (e) {
-      setTestResult({ severity: 'error', message: e instanceof Error ? e.message : 'Test push failed.' });
-    } finally {
-      setTestBusy(false);
-    }
-  };
-
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', p: { xs: 2, md: 4 } }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         gap={3}
-        sx={{ width: '100%', maxWidth: 980, alignItems: 'flex-start' }}
+        sx={{ width: '100%', maxWidth: 980, alignItems: 'stretch' }}
       >
         <Paper sx={{ p: 3, flex: 1, width: '100%', borderRadius: 3 }}>
           <Stack gap={2.5}>
@@ -214,46 +175,14 @@ export default function PushPanel() {
           </Stack>
         </Paper>
 
-        <Stack gap={3} sx={{ flex: 1, width: '100%' }}>
-          <Paper sx={{ p: 3, borderRadius: 3 }}>
-            <Typography variant="overline" color="text.secondary">
-              Live preview
-            </Typography>
+        <Paper sx={{ p: 3, borderRadius: 3, flex: 1, width: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Typography variant="overline" color="text.secondary">
+            Live preview
+          </Typography>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <ToastPreview push={push} />
-          </Paper>
-
-          <Paper sx={{ p: 3, borderRadius: 3 }}>
-            <Typography variant="overline" color="text.secondary">
-              Send a test
-            </Typography>
-            <Typography variant="body2" color="text.secondary" mb={2}>
-              The wallet must be connected through the SDK somewhere right now to see it live.
-            </Typography>
-            {testResult && (
-              <Alert severity={testResult.severity} onClose={() => setTestResult(null)} sx={{ mb: 2 }}>
-                {testResult.message}
-              </Alert>
-            )}
-            <Stack direction="row" gap={1.5}>
-              <TextField
-                size="small"
-                fullWidth
-                label="Wallet address"
-                placeholder="0x…"
-                value={testWallet}
-                onChange={(ev) => setTestWallet(ev.target.value)}
-              />
-              <Button
-                variant="contained"
-                onClick={() => void handleTestSend()}
-                disabled={!canTest}
-                sx={{ whiteSpace: 'nowrap', px: 3 }}
-              >
-                {testBusy ? <CircularProgress size={18} color="inherit" /> : 'Send test'}
-              </Button>
-            </Stack>
-          </Paper>
-        </Stack>
+          </Box>
+        </Paper>
       </Stack>
     </Box>
   );
