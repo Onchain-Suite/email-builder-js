@@ -131,12 +131,21 @@ function findMatchingTableClose(html: string, openIdx: number): number | null {
 }
 
 /**
- * Wraps the centered content table (the one carrying `max-width:<n>px`) in an
- * Outlook-only ghost table. Outlook's Word engine ignores `max-width`, so the
- * card would otherwise run full-width and left-aligned; the ghost table pins
- * it to the card width and centers it. Invisible to every other client.
+ * Wraps the content card (the table carrying `max-width:<n>px`) in a
+ * bulletproof centering structure — the single most important fix for the
+ * "card pinned to one side, backdrop filling the gutter" bug.
+ *
+ * The card centers itself only via `align="center"` + `margin:0 auto`. That
+ * collapses the moment a client or a send-pipeline HTML rewriter (link
+ * tracking, unsubscribe injection) re-serializes the markup and drops the
+ * `align` attribute — then the card floats to an edge. The proven-safe
+ * pattern (identical to the platform's own transactional `branded-email.ts`,
+ * which survives the same pipeline) is a full-width outer table whose cell is
+ * `align="center"`: centering then lives on the wrapper cell, not on a lone
+ * attribute of the card. A nested MSO ghost table pins the width for Outlook,
+ * which ignores `max-width`.
  */
-function wrapForOutlook(html: string): string {
+function wrapCentered(html: string): string {
   const cardTable = html.match(/<table\b[^>]*max-width:\s*(\d+)px[^>]*>/i);
   if (!cardTable || cardTable.index === undefined) {
     return html;
@@ -148,12 +157,14 @@ function wrapForOutlook(html: string): string {
     return html;
   }
 
-  const ghostOpen =
+  const open =
+    `<table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%">` +
+    `<tr><td align="center" style="text-align:center">` +
     `<!--[if mso]><table role="presentation" align="center" border="0" cellspacing="0" cellpadding="0" ` +
     `width="${width}"><tr><td><![endif]-->`;
-  const ghostClose = '<!--[if mso]></td></tr></table><![endif]-->';
+  const close = `<!--[if mso]></td></tr></table><![endif]--></td></tr></table>`;
 
-  return html.slice(0, openIdx) + ghostOpen + html.slice(openIdx, closeIdx) + ghostClose + html.slice(closeIdx);
+  return html.slice(0, openIdx) + open + html.slice(openIdx, closeIdx) + close + html.slice(closeIdx);
 }
 
 export default function makeResponsiveHtml(html: string): string {
@@ -169,8 +180,9 @@ export default function makeResponsiveHtml(html: string): string {
   out = out.replace(/<table\b[^>]*>/gi, fluidizeTable);
   out = out.replace(/<img\b[^>]*\/?>/gi, fluidizeImage);
 
-  // Pin + center the card in Outlook, which ignores max-width.
-  out = wrapForOutlook(out);
+  // Center the card on a bulletproof wrapper cell (not a lone align attr),
+  // and pin its width for Outlook.
+  out = wrapCentered(out);
 
   // Paint the backdrop edge-to-edge on <body> and drop its default margin so
   // the card reads as centered, not shoved to one side.
