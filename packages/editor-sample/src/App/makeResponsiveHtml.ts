@@ -131,40 +131,68 @@ function findMatchingTableClose(html: string, openIdx: number): number | null {
 }
 
 /**
- * Wraps the content card (the table carrying `max-width:<n>px`) in a
- * bulletproof centering structure — the single most important fix for the
- * "card pinned to one side, backdrop filling the gutter" bug.
+ * Centers the content card (the table carrying `max-width:<n>px`) in a way
+ * that survives an aggressive transport sanitizer — the fix for the "card
+ * pinned to one side, backdrop filling the gutter" bug.
  *
- * The card centers itself only via `align="center"` + `margin:0 auto`. That
- * collapses the moment a client or a send-pipeline HTML rewriter (link
- * tracking, unsubscribe injection) re-serializes the markup and drops the
- * `align` attribute — then the card floats to an edge. The proven-safe
- * pattern (identical to the platform's own transactional `branded-email.ts`,
- * which survives the same pipeline) is a full-width outer table whose cell is
- * `align="center"`: centering then lives on the wrapper cell, not on a lone
- * attribute of the card. A nested MSO ghost table pins the width for Outlook,
- * which ignores `max-width`.
+ * The send transport (Azure Communication Services / Exchange Online) rewrites
+ * every outgoing email: it strips <html>/<head>/<body>/<style>, ALL `align`
+ * attributes, table `width`/`role`/`cellspacing`/`cellpadding`/`border`
+ * attributes, `margin` out of inline styles, and HTML comments (so MSO ghost
+ * tables die too). Verified against the raw sent MIME. Every classic centering
+ * hook — `align="center"`, `margin:0 auto`, a media-query stylesheet, an
+ * Outlook ghost table — is exactly what it removes.
+ *
+ * What DOES survive is inline `style` properties. The only centering primitive
+ * left standing is therefore `text-align:center` on a parent — but that centers
+ * inline-level boxes only, not a block-level <table>. So we make the card an
+ * `display:inline-block` box (with `width:100%;max-width:<n>px`) inside a
+ * `text-align:center` wrapper: the inline-block card is then centered by
+ * text-align, using nothing but inline styles the sanitizer keeps. The wrapper
+ * also carries `align="center"` and the card keeps `margin:0 auto` for the
+ * happy path where nothing is stripped.
  */
 function wrapCentered(html: string): string {
-  const cardTable = html.match(/<table\b[^>]*max-width:\s*(\d+)px[^>]*>/i);
+  const cardTable = html.match(/<table\b[^>]*max-width:\s*\d+px[^>]*>/i);
   if (!cardTable || cardTable.index === undefined) {
     return html;
   }
-  const width = cardTable[1];
   const openIdx = cardTable.index;
+  const cardOpenTag = cardTable[0];
+  const cardOpenEnd = openIdx + cardOpenTag.length;
   const closeIdx = findMatchingTableClose(html, openIdx);
   if (closeIdx === null) {
     return html;
   }
 
+  // Make the card itself an inline-block that `text-align:center` can center
+  // even after every attribute and `margin` is stripped in transit.
+  const centeredCardTag = ensureInlineBlockCard(cardOpenTag);
+
   const open =
     `<table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%">` +
-    `<tr><td align="center" style="text-align:center">` +
-    `<!--[if mso]><table role="presentation" align="center" border="0" cellspacing="0" cellpadding="0" ` +
-    `width="${width}"><tr><td><![endif]-->`;
-  const close = `<!--[if mso]></td></tr></table><![endif]--></td></tr></table>`;
+    `<tr><td align="center" style="text-align:center">`;
+  const close = `</td></tr></table>`;
 
-  return html.slice(0, openIdx) + open + html.slice(openIdx, closeIdx) + close + html.slice(closeIdx);
+  return (
+    html.slice(0, openIdx) +
+    open +
+    centeredCardTag +
+    html.slice(cardOpenEnd, closeIdx) +
+    close +
+    html.slice(closeIdx)
+  );
+}
+
+/** Adds `display:inline-block;width:100%` (once) to the card's inline style. */
+function ensureInlineBlockCard(tag: string): string {
+  const style = getStyleAttr(tag) ?? '';
+  if (/display:\s*inline-block/i.test(style)) {
+    return tag;
+  }
+  const additions = `display:inline-block;width:100%`;
+  const nextStyle = style ? `${style.replace(/;\s*$/, '')};${additions}` : additions;
+  return setStyleAttr(tag, 'table', nextStyle);
 }
 
 export default function makeResponsiveHtml(html: string): string {
