@@ -1,12 +1,20 @@
 /**
- * Post-processes the rendered email HTML to make it mobile-responsive.
+ * Post-processes the rendered email HTML into a bulletproof, mobile- and
+ * desktop-safe document — the "centered card on a full-bleed backdrop"
+ * structure every robust marketing email uses.
  *
- * Two layers, because email clients differ:
+ * Layers, because email clients differ:
  * 1. Fluid-hybrid inline rewrites (work EVERYWHERE, media queries or not —
  *    including the Gmail app on non-Gmail accounts, which strips <style>):
  *    - any table fixed wider than 480px becomes width:100% + max-width:<n>px
  *    - images gain max-width:100%; height:auto
- * 2. A <head> with viewport meta and a media-query stylesheet for clients
+ * 2. A <body> reset that paints the backdrop edge-to-edge and drops the
+ *    default 8px margin (that margin is why an un-reset email looks shoved
+ *    to one side instead of centered).
+ * 3. An Outlook (Word engine) ghost table: Outlook ignores `max-width`, so
+ *    without this the card runs full-bleed and left-aligned on desktop
+ *    Outlook. The MSO-conditional table pins it to the card width, centered.
+ * 4. A <head> with viewport meta and a media-query stylesheet for clients
  *    that support it: multi-column layout tables (tagged via their inline
  *    `table-layout:fixed`) stack vertically on small screens.
  *
@@ -18,9 +26,13 @@
 // their fixed widths alone.
 const FLUID_MIN_PX = 480;
 
+// Fallback backdrop when the layout has none — matches EmailLayout's default.
+const DEFAULT_BACKDROP = '#F5F5F5';
+
 const RESPONSIVE_STYLES = `
   body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-  img { border: 0; outline: none; text-decoration: none; }
+  table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
   @media only screen and (max-width: 480px) {
     .eb-columns td {
       display: block !important;
@@ -88,6 +100,62 @@ function fluidizeImage(tag: string): string {
   return setStyleAttr(tag, 'img', nextStyle);
 }
 
+/**
+ * Reads the backdrop color off the outermost wrapper (the EmailLayout root
+ * <div>, which carries `background-color:<backdrop>`). Used to paint the
+ * <body> the same color so the backdrop is full-bleed rather than a floating
+ * band inside a default-white body.
+ */
+function extractBackdropColor(html: string): string {
+  const firstDiv = html.match(/<div\b[^>]*style="([^"]*)"/i);
+  const bg = firstDiv?.[1].match(/background-color:\s*(#[0-9a-fA-F]{3,8}|rgb[^;"]*)/i);
+  return bg ? bg[1].trim() : DEFAULT_BACKDROP;
+}
+
+/** Finds the index just past the `</table>` that closes the table opening at `openIdx`. */
+function findMatchingTableClose(html: string, openIdx: number): number | null {
+  const token = /<table\b|<\/table>/gi;
+  token.lastIndex = openIdx;
+  let depth = 0;
+  for (let m = token.exec(html); m; m = token.exec(html)) {
+    if (m[0].toLowerCase() === '</table>') {
+      depth -= 1;
+      if (depth === 0) {
+        return m.index + m[0].length;
+      }
+    } else {
+      depth += 1;
+    }
+  }
+  return null;
+}
+
+/**
+ * Wraps the centered content table (the one carrying `max-width:<n>px`) in an
+ * Outlook-only ghost table. Outlook's Word engine ignores `max-width`, so the
+ * card would otherwise run full-width and left-aligned; the ghost table pins
+ * it to the card width and centers it. Invisible to every other client.
+ */
+function wrapForOutlook(html: string): string {
+  const cardTable = html.match(/<table\b[^>]*max-width:\s*(\d+)px[^>]*>/i);
+  if (!cardTable || cardTable.index === undefined) {
+    return html;
+  }
+  const width = cardTable[1];
+  const openIdx = cardTable.index;
+  const closeIdx = findMatchingTableClose(html, openIdx);
+  if (closeIdx === null) {
+    return html;
+  }
+
+  const ghostOpen =
+    `<!--[if mso]><table role="presentation" align="center" border="0" cellspacing="0" cellpadding="0" ` +
+    `width="${width}"><tr><td><![endif]-->`;
+  const ghostClose = '<!--[if mso]></td></tr></table><![endif]-->';
+
+  return html.slice(0, openIdx) + ghostOpen + html.slice(openIdx, closeIdx) + ghostClose + html.slice(closeIdx);
+}
+
 export default function makeResponsiveHtml(html: string): string {
   let out = html;
 
@@ -100,6 +168,19 @@ export default function makeResponsiveHtml(html: string): string {
   // Fluid-hybrid pass: works in every client, no media queries required.
   out = out.replace(/<table\b[^>]*>/gi, fluidizeTable);
   out = out.replace(/<img\b[^>]*\/?>/gi, fluidizeImage);
+
+  // Pin + center the card in Outlook, which ignores max-width.
+  out = wrapForOutlook(out);
+
+  // Paint the backdrop edge-to-edge on <body> and drop its default margin so
+  // the card reads as centered, not shoved to one side.
+  const backdrop = extractBackdropColor(out);
+  const bodyReset = `margin:0;padding:0;width:100%;background-color:${backdrop};`;
+  if (/<body\b[^>]*style="/i.test(out)) {
+    out = out.replace(/(<body\b[^>]*style=")/i, `$1${bodyReset}`);
+  } else {
+    out = out.replace(/<body\b([^>]*)>/i, `<body$1 style="${bodyReset}">`);
+  }
 
   // Inject the head (renderToStaticMarkup emits <html><body> with no head).
   if (/<head[\s>]/i.test(out)) {
