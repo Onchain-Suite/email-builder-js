@@ -83,7 +83,9 @@ function fluidizeTable(tag: string): string {
   let out = tag.replace(/(\s)width="[\d.]+"/i, '$1width="100%"');
   let nextStyle = style.replace(/((?:^|;)\s*)width:\s*[\d.]+px/i, '$1width:100%');
   if (!/max-width/i.test(nextStyle)) {
-    nextStyle = nextStyle ? `${nextStyle.replace(/;\s*$/, '')};max-width:${width}px` : `width:100%;max-width:${width}px`;
+    nextStyle = nextStyle
+      ? `${nextStyle.replace(/;\s*$/, '')};max-width:${width}px`
+      : `width:100%;max-width:${width}px`;
   }
   return setStyleAttr(out, 'table', nextStyle);
 }
@@ -94,9 +96,7 @@ function fluidizeImage(tag: string): string {
   if (style && /max-width/i.test(style)) {
     return tag;
   }
-  const nextStyle = style
-    ? `${style.replace(/;\s*$/, '')};max-width:100%;height:auto`
-    : 'max-width:100%;height:auto';
+  const nextStyle = style ? `${style.replace(/;\s*$/, '')};max-width:100%;height:auto` : 'max-width:100%;height:auto';
   return setStyleAttr(tag, 'img', nextStyle);
 }
 
@@ -175,12 +175,7 @@ function wrapCentered(html: string): string {
   const close = `</td></tr></table>`;
 
   return (
-    html.slice(0, openIdx) +
-    open +
-    centeredCardTag +
-    html.slice(cardOpenEnd, closeIdx) +
-    close +
-    html.slice(closeIdx)
+    html.slice(0, openIdx) + open + centeredCardTag + html.slice(cardOpenEnd, closeIdx) + close + html.slice(closeIdx)
   );
 }
 

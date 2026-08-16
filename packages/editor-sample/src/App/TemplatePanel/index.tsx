@@ -1,7 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { Monitor, Redo2, Smartphone, Undo2 } from 'lucide-react';
-import { Box, Divider, IconButton, Paper, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
+import {
+  Box,
+  Divider,
+  IconButton,
+  Paper,
+  Stack,
+  SxProps,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+} from '@mui/material';
 
 import EditorBlock from '../../documents/editor/EditorBlock';
 import {
@@ -69,9 +79,10 @@ export default function TemplatePanel() {
 
   const getFullscreenElement = () => {
     const d = window.document as any;
-    return (d.fullscreenElement ?? d.webkitFullscreenElement ?? d.mozFullScreenElement ?? d.msFullscreenElement) as
-      | Element
-      | null;
+    return (d.fullscreenElement ??
+      d.webkitFullscreenElement ??
+      d.mozFullScreenElement ??
+      d.msFullscreenElement) as Element | null;
   };
 
   const [isFullscreen, setIsFullscreen] = useState(() => Boolean(getFullscreenElement()));
@@ -113,7 +124,10 @@ export default function TemplatePanel() {
     if (embeddedValue !== 'true') return;
     const parentOrigin = getParentOrigin();
     if (!parentOrigin) return;
-    window.parent.postMessage({ type: 'EMAIL_FULLSCREEN_CHANGE', payload: { fullscreen: isFullscreenActive } }, parentOrigin);
+    window.parent.postMessage(
+      { type: 'EMAIL_FULLSCREEN_CHANGE', payload: { fullscreen: isFullscreenActive } },
+      parentOrigin
+    );
   }, [getParentOrigin, isFullscreenActive]);
 
   const requestFullscreen = useCallback(async () => {
@@ -330,7 +344,13 @@ export default function TemplatePanel() {
 
         {/* Right zone: file actions — HTML import only; export/share/fullscreen
             live in the host app */}
-        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end" sx={{ flex: 1, minWidth: 0 }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          alignItems="center"
+          justifyContent="flex-end"
+          sx={{ flex: 1, minWidth: 0 }}
+        >
           <ImportHtml />
         </Stack>
       </Stack>
