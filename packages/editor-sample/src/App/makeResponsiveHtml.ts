@@ -232,5 +232,12 @@ export default function makeResponsiveHtml(html: string): string {
     out = out.replace(/<html([^>]*)>/i, `<html$1>${HEAD_MARKUP}`);
   }
 
+  // Also drop the stylesheet at the top of <body>. Some send pipelines forward
+  // only the <body> inner HTML (dropping <head> and its <style>); a body-level
+  // <style> then survives and keeps the media queries working. Harmless where
+  // <head> is preserved, and where the transport strips ALL <style> the inline
+  // fluid pass above is still the responsive floor.
+  out = out.replace(/(<body\b[^>]*>)/i, `$1<style>${RESPONSIVE_STYLES}</style>`);
+
   return out;
 }
