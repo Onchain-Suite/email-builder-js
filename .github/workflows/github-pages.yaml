@@ -31,6 +31,9 @@ jobs:
           npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # Enable Pages (GitHub Actions source) on first run if not yet configured.
+          enablement: true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
