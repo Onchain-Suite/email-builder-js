@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { Monitor, Redo2, Smartphone, Undo2 } from 'lucide-react';
 import { Box, Divider, IconButton, Paper, Stack, SxProps, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
-import { Reader } from '@usewaypoint/email-builder';
 
 import EditorBlock from '../../documents/editor/EditorBlock';
 import {
@@ -19,6 +18,7 @@ import ToggleSamplesPanelButton from '../SamplesDrawer/ToggleSamplesPanelButton'
 
 import ImportHtml from './ImportHtml';
 import MainTabsGroup from './MainTabsGroup';
+import PreviewFrame from './PreviewFrame';
 import PushPanel from './PushPanel';
 
 export default function TemplatePanel() {
@@ -246,13 +246,10 @@ export default function TemplatePanel() {
           </Box>
         );
       case 'preview':
-        return (
-          <Box sx={mainBoxSx}>
-            <Paper sx={canvasPaperSx}>
-              <Reader document={document} rootBlockId="root" />
-            </Paper>
-          </Box>
-        );
+        // Rendered in an iframe (a true device viewport) so the email's own
+        // media queries fire — the editor canvas above is a plain box and
+        // can't reflow responsive layouts the way a real phone does.
+        return <PreviewFrame document={document} screenSize={selectedScreenSize === 'mobile' ? 'mobile' : 'desktop'} />;
       case 'push':
         return <PushPanel />;
     }
