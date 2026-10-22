@@ -22,6 +22,10 @@ type TApiSession = {
   /** Campaign the editor token was minted for — sent as ?campaignId= so the
    * backend can resolve the token's scope on template/config routes. */
   campaignId: string | null;
+  /** Automation node design the editor token was minted for (mutually exclusive
+   * with campaignId) — sent as ?designId= on token routes. When set, content
+   * load/save targets /email-designs/:id instead of /campaigns/:id. */
+  designId: string | null;
 };
 
 const apiSessionStore = create<TApiSession>(() => ({
@@ -30,6 +34,7 @@ const apiSessionStore = create<TApiSession>(() => ({
   authToken: null,
   orgId: null,
   campaignId: null,
+  designId: null,
 }));
 
 export function setApiSession(session: Partial<TApiSession>) {
