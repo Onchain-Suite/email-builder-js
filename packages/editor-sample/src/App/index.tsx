@@ -178,6 +178,27 @@ export default function App() {
     if (initialEmbedded) return null;
     return normalizeCampaignId(searchParams.get('campaign'));
   });
+  // When set, the editor edits a Send Email automation node's standalone design
+  // via the /email-designs/:id routes instead of a campaign — nothing is written
+  // to the Campaigns list or the Templates library.
+  const [designId, setDesignId] = useState<string | null>(() => {
+    if (initialEmbedded) return null;
+    return normalizeNonEmptyString(searchParams.get('design'));
+  });
+  // The backend resource the editor's content (load / save / autosave) is scoped
+  // to: a node design when one was handed in, else the campaign. Both expose the
+  // same /editor/content, /editor/saved and /email routes.
+  const contentBase = useMemo(
+    () =>
+      designId
+        ? `email-designs/${encodeURIComponent(designId)}`
+        : campaignId
+          ? `campaigns/${encodeURIComponent(campaignId)}`
+          : null,
+    [designId, campaignId]
+  );
+  // A single id for readiness checks + storage keys (design takes precedence).
+  const resourceId = designId ?? campaignId;
   const [token, setToken] = useState<string | null>(() => {
     if (initialEmbedded) return null;
     const raw = searchParams.get('token') ?? searchParams.get('sessionToken') ?? searchParams.get('editorToken');
@@ -322,7 +343,7 @@ export default function App() {
 
   useEffect(() => {
     if (!effectiveEmbedded) return;
-    if (campaignId && token && orgId && apiUrl) return;
+    if (resourceId && token && orgId && apiUrl) return;
     let count = 0;
     const interval = window.setInterval(() => {
       count += 1;
@@ -330,12 +351,12 @@ export default function App() {
       if (count >= 10) {
         window.clearInterval(interval);
       }
-      if (campaignId && token && orgId && apiUrl) {
+      if (resourceId && token && orgId && apiUrl) {
         window.clearInterval(interval);
       }
     }, 750);
     return () => window.clearInterval(interval);
-  }, [apiUrl, campaignId, effectiveEmbedded, orgId, postToParent, token]);
+  }, [apiUrl, campaignId, designId, effectiveEmbedded, orgId, postToParent, token]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -349,6 +370,7 @@ export default function App() {
       const nextApiBaseUrl = normalizeApiBaseUrl(data.apiBaseUrl ?? data.apiUrl);
 
       const nextCampaignId = normalizeCampaignId(data.campaignId ?? data.campaign ?? data.campaign?.id);
+      const nextDesignId = normalizeNonEmptyString(data.designId ?? data.design);
       const nextToken = normalizeToken(data.token ?? data.sessionToken ?? data.editorToken);
       const nextAuthToken = normalizeToken(data.authToken ?? data.userToken ?? data.apiSessionToken);
       const nextOrgId = normalizeNonEmptyString(
@@ -363,6 +385,7 @@ export default function App() {
 
       setParentOrigin(event.origin);
       if (nextCampaignId) setCampaignId(nextCampaignId);
+      if (nextDesignId) setDesignId(nextDesignId);
       if (nextToken) setToken(nextToken);
       if (nextAuthToken) setAuthToken(nextAuthToken);
       if (nextOrgId) setOrgId(nextOrgId);
@@ -400,15 +423,15 @@ export default function App() {
   // Share host-provided credentials with the API modules (asset uploads,
   // template history panel) so they authenticate like the campaign flow.
   useEffect(() => {
-    setApiSession({ apiUrl: apiUrl || null, token, authToken, orgId, campaignId });
-  }, [apiUrl, token, authToken, orgId, campaignId]);
+    setApiSession({ apiUrl: apiUrl || null, token, authToken, orgId, campaignId, designId });
+  }, [apiUrl, token, authToken, orgId, campaignId, designId]);
 
   // Backend autosave: persist drafts to POST /campaigns/{id}/editor/saved
   // (accepts editor-token auth). Best-effort and deduped so loading a
   // template doesn't immediately re-save it.
   const lastAutosavedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!campaignId || !apiUrl) return;
+    if (!contentBase || !apiUrl) return;
     if (effectiveEmbedded && (!token || !orgId)) return;
     const push = toPushPayload(pushContent);
     const serialized = JSON.stringify({ document, push: push ?? null });
@@ -425,7 +448,7 @@ export default function App() {
         if (orgId) {
           headers['x-org-id'] = orgId;
         }
-        const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/editor/saved`, {
+        const res = await fetch(`${apiUrl}/${contentBase}/editor/saved`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ html, json, textVersion, push: push ?? null }),
@@ -439,14 +462,14 @@ export default function App() {
       }
     }, 4000);
     return () => window.clearTimeout(timer);
-  }, [document, pushContent, campaignId, apiUrl, token, orgId, effectiveEmbedded, requestCredentials]);
+  }, [document, pushContent, contentBase, apiUrl, token, orgId, effectiveEmbedded, requestCredentials]);
 
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
 
     const fetchTemplate = async () => {
-      if (!campaignId) return;
+      if (!contentBase) return;
       if (!apiUrl) {
         setErrorMessage('Missing apiBaseUrl; cannot load template.');
         return;
@@ -483,7 +506,7 @@ export default function App() {
         let fetchedDocument: any = null;
         let fetchedPush: TPushContent | null = null;
         try {
-          const draftRes = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/editor/content`, {
+          const draftRes = await fetch(`${apiUrl}/${contentBase}/editor/content`, {
             method: 'GET',
             headers,
             credentials: 'omit',
@@ -499,7 +522,7 @@ export default function App() {
         }
 
         if (!fetchedDocument) {
-          const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
+          const res = await fetch(`${apiUrl}/${contentBase}/email`, {
             method: 'GET',
             headers,
             credentials: 'omit',
@@ -559,7 +582,7 @@ export default function App() {
       cancelled = true;
       controller.abort();
     };
-  }, [apiUrl, buildErrorFromResponse, campaignId, effectiveEmbedded, orgId, postToParent, token]);
+  }, [apiUrl, buildErrorFromResponse, contentBase, effectiveEmbedded, orgId, postToParent, token]);
 
   const handleSaveTemplate = async () => {
     if (!campaignId) {
@@ -600,7 +623,7 @@ export default function App() {
         headers['x-org-id'] = orgId;
       }
 
-      const res = await fetch(`${apiUrl}/campaigns/${encodeURIComponent(campaignId)}/email`, {
+      const res = await fetch(`${apiUrl}/${contentBase}/email`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({
