@@ -585,11 +585,11 @@ export default function App() {
   }, [apiUrl, buildErrorFromResponse, contentBase, effectiveEmbedded, orgId, postToParent, token]);
 
   const handleSaveTemplate = async () => {
-    if (!campaignId) {
+    if (!contentBase) {
       setErrorMessage(
         effectiveEmbedded
-          ? 'Missing campaignId. Host app must provide campaign via HOST_CONFIG.'
-          : 'Missing campaign query param; cannot save template.'
+          ? 'Missing campaign or design. Host app must provide one via HOST_CONFIG.'
+          : 'Missing campaign/design query param; cannot save.'
       );
       return;
     }
