@@ -1,3 +1,4 @@
+import { Braces, RotateCw, Search, X } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -17,7 +18,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Braces, RotateCw, Search, X } from 'lucide-react';
 
 import { useVariables } from '../../../../../../documents/editor/VariablesContext';
 
@@ -34,6 +34,16 @@ type Props = {
   /** Called with the merge tag (e.g. `{{ profile.firstName }}`) to insert. */
   onInsert: (tag: string) => void;
   label?: string;
+};
+
+/** A single merge tag flattened out of a backend-driven variable group. */
+type VariableItem = {
+  groupId: string;
+  groupLabel: string;
+  key: string;
+  label: string;
+  type?: string;
+  required?: boolean;
 };
 
 /**
@@ -78,14 +88,7 @@ export default function VariableTagButton({ onInsert, label = 'Variable Tags' }:
   };
 
   const allVariables = useMemo(() => {
-    const items: Array<{
-      groupId: string;
-      groupLabel: string;
-      key: string;
-      label: string;
-      type?: string;
-      required?: boolean;
-    }> = [];
+    const items: VariableItem[] = [];
     for (const g of variableGroups) {
       for (const it of g.items) {
         items.push({
@@ -115,10 +118,10 @@ export default function VariableTagButton({ onInsert, label = 'Variable Tags' }:
       return v.label.toLowerCase().includes(q) || keyForDisplay(v.key).toLowerCase().includes(q);
     };
 
-    const result: Array<{ id: string; label: string; items: typeof allVariables }> = [];
+    const result: Array<{ id: string; label: string; items: VariableItem[] }> = [];
 
     if (!q && recentVariables.length > 0) {
-      result.push({ id: 'recent', label: 'Recent', items: recentVariables as any });
+      result.push({ id: 'recent', label: 'Recent', items: recentVariables });
     }
 
     for (const g of variableGroups) {
@@ -134,7 +137,7 @@ export default function VariableTagButton({ onInsert, label = 'Variable Tags' }:
         .filter(matches);
 
       if (items.length > 0) {
-        result.push({ id: g.id, label: g.label, items: items as any });
+        result.push({ id: g.id, label: g.label, items });
       }
     }
 
@@ -279,7 +282,7 @@ export default function VariableTagButton({ onInsert, label = 'Variable Tags' }:
                           {g.label}
                         </Typography>
                         <List dense disablePadding>
-                          {items.map((it: any) => {
+                          {items.map((it: VariableItem) => {
                             const currentIndex = runningIndex;
                             runningIndex += 1;
                             const active = currentIndex === activeIndex;

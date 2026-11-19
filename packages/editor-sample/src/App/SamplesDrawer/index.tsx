@@ -3,10 +3,10 @@ import React from 'react';
 import { Box, Drawer, Stack, Tab, Tabs } from '@mui/material';
 
 import { setSidebarTab, useSamplesDrawerOpen, useSelectedSidebarTab } from '../../documents/editor/EditorContext';
-
 import ConfigurationPanel from '../InspectorDrawer/ConfigurationPanel';
 import HistoryPanel from '../InspectorDrawer/HistoryPanel';
 import StylesPanel from '../InspectorDrawer/StylesPanel';
+
 import BlocksPanel from './BlocksPanel';
 
 export const SAMPLES_DRAWER_WIDTH = 340;
@@ -50,7 +50,12 @@ export default function SamplesDrawer() {
     >
       <Stack spacing={0} width={SAMPLES_DRAWER_WIDTH} height="100%">
         <Box px={1.5} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={selectedSidebarTab} onChange={(_: React.SyntheticEvent, v: any) => setSidebarTab(v)}>
+          <Tabs
+            value={selectedSidebarTab}
+            onChange={(_: React.SyntheticEvent, v: 'blocks' | 'block-configuration' | 'styles' | 'history') =>
+              setSidebarTab(v)
+            }
+          >
             <Tab value="blocks" label="Blocks" />
             <Tab value="history" label="Templates" />
             <Tab value="styles" label="Styles" />

@@ -1,6 +1,6 @@
+import { MousePointerClick } from 'lucide-react';
 import React from 'react';
 
-import { MousePointerClick } from 'lucide-react';
 import { Box, Stack, Typography } from '@mui/material';
 
 import { TEditorBlock } from '../../../documents/editor/core';
@@ -57,7 +57,10 @@ export default function ConfigurationPanel() {
   const selectedBlockId = useSelectedBlockId();
 
   if (!selectedBlockId) {
-    return renderEmptyState('Nothing selected', 'Click any block on the canvas to edit its content and appearance here.');
+    return renderEmptyState(
+      'Nothing selected',
+      'Click any block on the canvas to edit its content and appearance here.'
+    );
   }
   const block = document[selectedBlockId];
   if (!block) {

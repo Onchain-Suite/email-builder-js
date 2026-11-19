@@ -1,6 +1,6 @@
+import { BellRing, Eye, PencilLine } from 'lucide-react';
 import React from 'react';
 
-import { BellRing, PencilLine, Eye } from 'lucide-react';
 import { Tab, Tabs, Tooltip } from '@mui/material';
 
 import { setSelectedMainTab, useSelectedMainTab } from '../../documents/editor/EditorContext';

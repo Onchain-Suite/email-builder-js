@@ -1,6 +1,6 @@
+import { ChevronRight, PanelRightOpen } from 'lucide-react';
 import React from 'react';
 
-import { ChevronRight, PanelRightOpen } from 'lucide-react';
 import { IconButton } from '@mui/material';
 
 import { toggleInspectorDrawerOpen, useInspectorDrawerOpen } from '../../documents/editor/EditorContext';

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+
 import { resetDocument } from '../documents/editor/EditorContext';
 
 export default function PostMessageListener() {

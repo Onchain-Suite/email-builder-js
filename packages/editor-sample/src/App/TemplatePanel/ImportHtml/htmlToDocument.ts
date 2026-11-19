@@ -93,10 +93,7 @@ function closeTag(el: Element): string {
 
 function wrapInChain(chain: Element[], inner: string): string {
   const open = chain.map(openTag).join('');
-  const close = [...chain]
-    .reverse()
-    .map(closeTag)
-    .join('');
+  const close = [...chain].reverse().map(closeTag).join('');
   return `${open}${inner}${close}`;
 }
 

@@ -80,7 +80,7 @@ function fluidizeTable(tag: string): string {
     return tag;
   }
 
-  let out = tag.replace(/(\s)width="[\d.]+"/i, '$1width="100%"');
+  const out = tag.replace(/(\s)width="[\d.]+"/i, '$1width="100%"');
   let nextStyle = style.replace(/((?:^|;)\s*)width:\s*[\d.]+px/i, '$1width:100%');
   if (!/max-width/i.test(nextStyle)) {
     nextStyle = nextStyle
