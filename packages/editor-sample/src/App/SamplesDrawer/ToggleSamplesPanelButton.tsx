@@ -1,6 +1,6 @@
+import { ChevronLeft, Menu } from 'lucide-react';
 import React from 'react';
 
-import { ChevronLeft, Menu } from 'lucide-react';
 import { IconButton } from '@mui/material';
 
 import { toggleSamplesDrawerOpen, useSamplesDrawerOpen } from '../../documents/editor/EditorContext';

@@ -14,7 +14,13 @@
  *                            default the browser session cookie is used
  *                            (`credentials: "include"`).
  */
-import { apiCredentials, authHeaders, diagnoseAuthFailure, findErrorMessage, getApiBaseUrl } from '../../../../../api/config';
+import {
+  apiCredentials,
+  authHeaders,
+  diagnoseAuthFailure,
+  findErrorMessage,
+  getApiBaseUrl,
+} from '../../../../../api/config';
 
 export function getImageUploadEndpoint(): string {
   return import.meta.env.VITE_IMAGE_UPLOAD_URL ?? `${getApiBaseUrl()}/assets`;

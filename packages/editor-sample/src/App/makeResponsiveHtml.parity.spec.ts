@@ -92,7 +92,7 @@ describe('preview ↔ delivery parity', () => {
     expect(open).not.toMatch(/text-align/i);
   });
 
-  it("preserves a block's own explicit alignment (centered button stays centered)", () => {
+  it(`preserves a block's own explicit alignment (centered button stays centered)`, () => {
     const beforeBtn = exported.slice(0, exported.indexOf('CENTERED_BUTTON'));
     // the nearest alignment before the button is its own center, not the card's left
     expect(beforeBtn.lastIndexOf('text-align:center')).toBeGreaterThan(beforeBtn.lastIndexOf('text-align:left'));

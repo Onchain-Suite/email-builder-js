@@ -1,6 +1,6 @@
+import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react';
 import React, { useState } from 'react';
 
-import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react';
 import { ToggleButton } from '@mui/material';
 
 import RadioGroupInput from './RadioGroupInput';

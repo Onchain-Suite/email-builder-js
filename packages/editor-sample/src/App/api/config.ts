@@ -12,8 +12,7 @@ import { getApiSession } from './session';
  */
 const DEFAULT_API_BASE_URL = 'https://onchain-backend-dvxw.onrender.com/api/v1';
 
-const ENV_TOKEN: string | undefined =
-  import.meta.env.VITE_API_AUTH_TOKEN ?? import.meta.env.VITE_UPLOAD_AUTH_TOKEN;
+const ENV_TOKEN: string | undefined = import.meta.env.VITE_API_AUTH_TOKEN ?? import.meta.env.VITE_UPLOAD_AUTH_TOKEN;
 
 export function getApiBaseUrl(): string {
   const { apiUrl } = getApiSession();

@@ -2,8 +2,8 @@ import React from 'react';
 
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 
-import { appendBlockToRoot } from '../../documents/editor/EditorContext';
 import { BUTTONS } from '../../documents/blocks/helpers/EditorChildrenIds/AddBlockMenu/buttons';
+import { appendBlockToRoot } from '../../documents/editor/EditorContext';
 
 const LAYOUT_LABELS = new Set(['Columns', 'Container']);
 
@@ -24,8 +24,7 @@ function BlockCard({ label, icon, onClick }: { label: string; icon: JSX.Element;
         gap: 0.75,
         alignItems: 'center',
         justifyContent: 'center',
-        transition: (theme) =>
-          theme.transitions.create(['border-color', 'transform', 'box-shadow'], { duration: 150 }),
+        transition: (theme) => theme.transitions.create(['border-color', 'transform', 'box-shadow'], { duration: 150 }),
         '&:hover': {
           borderColor: 'primary.main',
           transform: 'translateY(-1px)',

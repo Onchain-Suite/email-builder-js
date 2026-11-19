@@ -1,6 +1,6 @@
+import { Monitor, Redo2, Smartphone, Undo2 } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { Monitor, Redo2, Smartphone, Undo2 } from 'lucide-react';
 import {
   Box,
   Divider,
@@ -64,7 +64,8 @@ export default function TemplatePanel() {
   }, []);
 
   const getParentOrigin = useCallback(() => {
-    const fromGlobal = (window as any).__EMAIL_BUILDER_PARENT_ORIGIN__ as string | undefined;
+    const fromGlobal = (window as unknown as { __EMAIL_BUILDER_PARENT_ORIGIN__?: string })
+      .__EMAIL_BUILDER_PARENT_ORIGIN__;
     if (fromGlobal) return fromGlobal;
     try {
       if (window.document.referrer) return new URL(window.document.referrer).origin;
@@ -78,11 +79,12 @@ export default function TemplatePanel() {
   const baseTopOffsetPx = 0;
 
   const getFullscreenElement = () => {
-    const d = window.document as any;
-    return (d.fullscreenElement ??
-      d.webkitFullscreenElement ??
-      d.mozFullScreenElement ??
-      d.msFullscreenElement) as Element | null;
+    const d = window.document as Document & {
+      webkitFullscreenElement?: Element | null;
+      mozFullScreenElement?: Element | null;
+      msFullscreenElement?: Element | null;
+    };
+    return d.fullscreenElement ?? d.webkitFullscreenElement ?? d.mozFullScreenElement ?? d.msFullscreenElement ?? null;
   };
 
   const [isFullscreen, setIsFullscreen] = useState(() => Boolean(getFullscreenElement()));
@@ -91,7 +93,7 @@ export default function TemplatePanel() {
 
   useEffect(() => {
     const onFullscreenChange = () => setIsFullscreen(Boolean(getFullscreenElement()));
-    const d = window.document as any;
+    const d = window.document;
     window.document.addEventListener('fullscreenchange', onFullscreenChange);
     d.addEventListener?.('webkitfullscreenchange', onFullscreenChange);
     d.addEventListener?.('mozfullscreenchange', onFullscreenChange);
@@ -131,7 +133,11 @@ export default function TemplatePanel() {
   }, [getParentOrigin, isFullscreenActive]);
 
   const requestFullscreen = useCallback(async () => {
-    const el = window.document.documentElement as any;
+    const el = window.document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+      mozRequestFullScreen?: () => Promise<void> | void;
+      msRequestFullscreen?: () => Promise<void> | void;
+    };
     const fn =
       el.requestFullscreen?.bind(el) ??
       el.webkitRequestFullscreen?.bind(el) ??
@@ -154,7 +160,11 @@ export default function TemplatePanel() {
   }, []);
 
   const exitFullscreen = useCallback(async () => {
-    const d = window.document as any;
+    const d = window.document as Document & {
+      webkitExitFullscreen?: () => Promise<void> | void;
+      mozCancelFullScreen?: () => Promise<void> | void;
+      msExitFullscreen?: () => Promise<void> | void;
+    };
     const fn =
       window.document.exitFullscreen?.bind(window.document) ??
       d.webkitExitFullscreen?.bind(window.document) ??
@@ -189,7 +199,7 @@ export default function TemplatePanel() {
       if (event.source !== window.parent) return;
       const parentOrigin = getParentOrigin();
       if (parentOrigin && event.origin !== parentOrigin) return;
-      const type = (event.data as any)?.type;
+      const type = (event.data as { type?: unknown })?.type;
       if (type === 'EMAIL_REQUEST_FULLSCREEN') {
         void requestFullscreen();
       }

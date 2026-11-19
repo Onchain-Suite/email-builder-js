@@ -1,6 +1,6 @@
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 import React from 'react';
 
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 import { IconButton, Paper, Stack, SxProps, Tooltip } from '@mui/material';
 
 import { TEditorBlock } from '../../../editor/core';

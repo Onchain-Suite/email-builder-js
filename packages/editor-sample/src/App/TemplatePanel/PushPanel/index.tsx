@@ -1,6 +1,6 @@
+import { BellRing } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 
-import { BellRing } from 'lucide-react';
 import { Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
 
 import {
@@ -126,9 +126,9 @@ export default function PushPanel() {
                 In-app push notification
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Saved with this campaign and delivered as a toast to wallets connected through the Onchain Suite SDK
-                on your protocol&rsquo;s site. Variables are replaced per recipient at send time. Leave the title and
-                body empty if this campaign should not send a push.
+                Saved with this campaign and delivered as a toast to wallets connected through the Onchain Suite SDK on
+                your protocol&rsquo;s site. Variables are replaced per recipient at send time. Leave the title and body
+                empty if this campaign should not send a push.
               </Typography>
             </Box>
 
@@ -154,12 +154,7 @@ export default function PushPanel() {
             />
             <Stack direction={{ xs: 'column', sm: 'row' }} gap={2}>
               <TextField label="CTA label" fullWidth {...fieldProps('ctaLabel')} placeholder="View details" />
-              <TextField
-                label="CTA URL"
-                fullWidth
-                {...fieldProps('ctaUrl')}
-                placeholder="https://app.example.com/…"
-              />
+              <TextField label="CTA URL" fullWidth {...fieldProps('ctaUrl')} placeholder="https://app.example.com/…" />
             </Stack>
 
             <Stack direction="row" justifyContent="flex-end">

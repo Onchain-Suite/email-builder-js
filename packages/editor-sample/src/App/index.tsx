@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Alert, Backdrop, Button, CircularProgress, Snackbar, Stack, useTheme } from '@mui/material';
-import { renderToStaticMarkup } from '@usewaypoint/email-builder';
+import { renderToStaticMarkup, TReaderDocument } from '@usewaypoint/email-builder';
 
+import { TEditorConfiguration } from '../documents/editor/core';
 import {
   EMPTY_PUSH_CONTENT,
   resetDocument,
@@ -15,9 +16,8 @@ import {
 } from '../documents/editor/EditorContext';
 import { VariablesProvider } from '../documents/editor/VariablesContext';
 
-import makeResponsiveHtml from './makeResponsiveHtml';
-
 import { setApiSession } from './api/session';
+import makeResponsiveHtml from './makeResponsiveHtml';
 import SamplesDrawer, { SAMPLES_DRAWER_WIDTH } from './SamplesDrawer';
 import TemplatePanel from './TemplatePanel';
 
@@ -33,7 +33,7 @@ function renderTextVersionFromHtml(html: string) {
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
+    .replace(/&#39;/gi, `'`)
     .replace(/\r/g, '')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
@@ -41,7 +41,7 @@ function renderTextVersionFromHtml(html: string) {
     .trim();
 }
 
-function buildEmailContent(document: any) {
+function buildEmailContent(document: TReaderDocument) {
   const html = makeResponsiveHtml(renderToStaticMarkup(document, { rootBlockId: 'root' }).trim());
   const textVersion = renderTextVersionFromHtml(html);
 
@@ -72,22 +72,24 @@ import PostMessageListener from './PostMessageListener';
 
 // Reads a saved `push` payload (in-app notification) out of a campaign
 // response, tolerating the same wrapper shapes as the document itself.
-function extractPushContent(data: any): TPushContent | null {
-  const payload = (data?.data ?? data?.payload ?? data) as any;
+function extractPushContent(data: unknown): TPushContent | null {
+  const root = data as { data?: unknown; payload?: unknown } | null;
+  const payload = (root?.data ?? root?.payload ?? root) as { push?: unknown } | null;
   const push = payload?.push;
   if (typeof push !== 'object' || push === null) {
     return null;
   }
-  const title = typeof push.title === 'string' ? push.title : '';
-  const body = typeof push.body === 'string' ? push.body : '';
+  const p = push as Record<string, unknown>;
+  const title = typeof p.title === 'string' ? p.title : '';
+  const body = typeof p.body === 'string' ? p.body : '';
   if (!title && !body) {
     return null;
   }
   return {
     title,
     body,
-    ctaLabel: typeof push.ctaLabel === 'string' ? push.ctaLabel : '',
-    ctaUrl: typeof push.ctaUrl === 'string' ? push.ctaUrl : '',
+    ctaLabel: typeof p.ctaLabel === 'string' ? p.ctaLabel : '',
+    ctaUrl: typeof p.ctaUrl === 'string' ? p.ctaUrl : '',
   };
 }
 
@@ -107,7 +109,10 @@ export default function App() {
     }
   }, []);
 
-  const initialEmbedded = useMemo(() => searchParams.get('embedded') === 'true' || isInIframe, [isInIframe, searchParams]);
+  const initialEmbedded = useMemo(
+    () => searchParams.get('embedded') === 'true' || isInIframe,
+    [isInIframe, searchParams]
+  );
 
   const normalizeToken = useCallback((value: unknown) => {
     if (typeof value !== 'string') return null;
@@ -138,7 +143,7 @@ export default function App() {
       const direct = normalizeNonEmptyString(value);
       if (direct) return direct;
       if (typeof value !== 'object' || value === null) return null;
-      const v: any = value;
+      const v = value as Record<string, unknown>;
       return (
         normalizeNonEmptyString(v.id) ??
         normalizeNonEmptyString(v.campaignId) ??
@@ -244,7 +249,8 @@ export default function App() {
   });
 
   useEffect(() => {
-    (window as any).__EMAIL_BUILDER_PARENT_ORIGIN__ = parentOrigin;
+    (window as unknown as { __EMAIL_BUILDER_PARENT_ORIGIN__?: string | null }).__EMAIL_BUILDER_PARENT_ORIGIN__ =
+      parentOrigin;
   }, [parentOrigin]);
 
   useEffect(() => {
@@ -297,7 +303,7 @@ export default function App() {
   );
 
   const postToParent = useCallback(
-    (message: any) => {
+    (message: unknown) => {
       if (!effectiveEmbedded) return;
       // postMessage throws synchronously on a malformed target origin; never
       // let one bad allowlist entry take down the whole app.
@@ -322,9 +328,12 @@ export default function App() {
   const buildErrorFromResponse = useCallback(async (res: Response) => {
     const contentType = res.headers.get('content-type') ?? '';
     if (contentType.includes('application/json')) {
-      const data = (await res.json().catch(() => null)) as any;
+      const data = (await res.json().catch(() => null)) as {
+        error?: { message?: string } | string;
+        message?: string;
+      } | null;
       const message =
-        data?.error?.message ??
+        (typeof data?.error === 'object' ? data.error?.message : undefined) ??
         data?.message ??
         (typeof data?.error === 'string' ? data.error : null) ??
         `Request failed (HTTP ${res.status})`;
@@ -356,7 +365,7 @@ export default function App() {
       }
     }, 750);
     return () => window.clearInterval(interval);
-  }, [apiUrl, campaignId, designId, effectiveEmbedded, orgId, postToParent, token]);
+  }, [apiUrl, campaignId, designId, effectiveEmbedded, orgId, postToParent, resourceId, token]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -364,12 +373,30 @@ export default function App() {
       if (!isHostOriginAllowed(event.origin)) return;
       if (parentOrigin && event.origin !== parentOrigin) return;
 
-      const data = (event.data ?? {}) as any;
+      const data = (event.data ?? {}) as {
+        type?: unknown;
+        apiBaseUrl?: unknown;
+        apiUrl?: unknown;
+        campaignId?: unknown;
+        campaign?: { id?: unknown; orgId?: unknown; organizationId?: unknown; org_id?: unknown };
+        designId?: unknown;
+        design?: unknown;
+        token?: unknown;
+        sessionToken?: unknown;
+        editorToken?: unknown;
+        authToken?: unknown;
+        userToken?: unknown;
+        apiSessionToken?: unknown;
+        orgId?: unknown;
+        organizationId?: unknown;
+        org_id?: unknown;
+        embedded?: unknown;
+      };
       if (data?.type !== 'HOST_CONFIG') return;
 
       const nextApiBaseUrl = normalizeApiBaseUrl(data.apiBaseUrl ?? data.apiUrl);
 
-      const nextCampaignId = normalizeCampaignId(data.campaignId ?? data.campaign ?? data.campaign?.id);
+      const nextCampaignId = normalizeCampaignId(data.campaignId ?? data.campaign);
       const nextDesignId = normalizeNonEmptyString(data.designId ?? data.design);
       const nextToken = normalizeToken(data.token ?? data.sessionToken ?? data.editorToken);
       const nextAuthToken = normalizeToken(data.authToken ?? data.userToken ?? data.apiSessionToken);
@@ -395,7 +422,14 @@ export default function App() {
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [isHostOriginAllowed, normalizeApiBaseUrl, normalizeCampaignId, normalizeNonEmptyString, normalizeToken, parentOrigin]);
+  }, [
+    isHostOriginAllowed,
+    normalizeApiBaseUrl,
+    normalizeCampaignId,
+    normalizeNonEmptyString,
+    normalizeToken,
+    parentOrigin,
+  ]);
 
   useEffect(() => {
     if (!effectiveEmbedded) return;
@@ -494,16 +528,23 @@ export default function App() {
           headers['x-org-id'] = orgId;
         }
 
-        const extractDocument = (data: any): any => {
-          if (data?.success === false) return null;
-          const payload = (data?.data ?? data?.payload ?? data) as any;
-          const doc = (payload?.document ?? payload?.json ?? payload?.emailConfig ?? payload) as any;
-          return doc && typeof doc === 'object' && doc.root ? doc : null;
+        const extractDocument = (data: unknown): TEditorConfiguration | null => {
+          const root = data as { success?: boolean; data?: unknown; payload?: unknown } | null;
+          if (root?.success === false) return null;
+          const payload = (root?.data ?? root?.payload ?? root) as {
+            document?: unknown;
+            json?: unknown;
+            emailConfig?: unknown;
+          } | null;
+          const doc = payload?.document ?? payload?.json ?? payload?.emailConfig ?? payload;
+          return doc && typeof doc === 'object' && (doc as { root?: unknown }).root
+            ? (doc as TEditorConfiguration)
+            : null;
         };
 
         // Prefer the latest autosaved editor draft; fall back to the
         // canonical persisted email document if there is no usable draft.
-        let fetchedDocument: any = null;
+        let fetchedDocument: TEditorConfiguration | null = null;
         let fetchedPush: TPushContent | null = null;
         try {
           const draftRes = await fetch(`${apiUrl}/${contentBase}/editor/content`, {
@@ -547,7 +588,7 @@ export default function App() {
             throw await buildErrorFromResponse(res);
           }
 
-          const data = (await res.json()) as any;
+          const data = (await res.json()) as { success?: boolean; error?: { message?: string }; message?: string };
           if (data?.success === false) {
             throw new Error(data?.error?.message ?? data?.message ?? 'Failed to load template.');
           }
@@ -582,7 +623,7 @@ export default function App() {
       cancelled = true;
       controller.abort();
     };
-  }, [apiUrl, buildErrorFromResponse, contentBase, effectiveEmbedded, orgId, postToParent, token]);
+  }, [apiUrl, buildErrorFromResponse, campaignId, contentBase, effectiveEmbedded, orgId, postToParent, token]);
 
   const handleSaveTemplate = async () => {
     if (!contentBase) {
@@ -679,7 +720,7 @@ export default function App() {
 
   // Updates the reusable template this campaign is already linked to
   // (from localStorage), keeping it in sync with the campaign email.
-  const persistReusableTemplate = async (content: { html: string; json: any; textVersion: string }) => {
+  const persistReusableTemplate = async (content: { html: string; json: TReaderDocument; textVersion: string }) => {
     if (!campaignId || !apiUrl || !orgId || !savedReusableTemplateId) return;
 
     const templateHeaders: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
@@ -717,7 +758,13 @@ export default function App() {
   };
 
   return (
-    <VariablesProvider apiBaseUrl={apiUrl} token={token} orgId={orgId} campaignId={campaignId} embedded={effectiveEmbedded}>
+    <VariablesProvider
+      apiBaseUrl={apiUrl}
+      token={token}
+      orgId={orgId}
+      campaignId={campaignId}
+      embedded={effectiveEmbedded}
+    >
       <PostMessageListener />
       <SamplesDrawer />
 

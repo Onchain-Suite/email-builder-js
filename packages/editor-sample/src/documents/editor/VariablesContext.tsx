@@ -97,7 +97,10 @@ export const VariablesProvider: React.FC<VariablesProviderProps> = ({
         if (!res.ok) {
           const contentType = res.headers.get('content-type') ?? '';
           if (contentType.includes('application/json')) {
-            const data = (await res.json().catch(() => null)) as any;
+            const data = (await res.json().catch(() => null)) as {
+              error?: { message?: string };
+              message?: string;
+            } | null;
             const message = data?.error?.message ?? data?.message ?? `Failed to load variables (HTTP ${res.status})`;
             throw new Error(message);
           }
@@ -105,20 +108,26 @@ export const VariablesProvider: React.FC<VariablesProviderProps> = ({
           throw new Error(text || `Failed to load variables (HTTP ${res.status})`);
         }
 
-        const json = (await res.json()) as any;
+        const json = (await res.json()) as {
+          success?: boolean;
+          error?: { message?: string };
+          message?: string;
+          data?: unknown;
+          payload?: unknown;
+        };
         if (json?.success === false) {
           throw new Error(json?.error?.message ?? json?.message ?? 'Failed to load variables');
         }
 
-        const payload = (json?.data ?? json?.payload ?? json) as any;
-        const groups = (payload?.groups ?? payload?.variableGroups ?? []) as any[];
+        const payload = (json?.data ?? json?.payload ?? json) as { groups?: unknown; variableGroups?: unknown };
+        const groups = (payload?.groups ?? payload?.variableGroups ?? []) as Record<string, unknown>[];
 
         const normalized: VariableGroup[] = groups
           .filter(Boolean)
           .map((g) => {
             const id = String(g.id ?? g.key ?? g.name ?? 'group');
             const label = String(g.label ?? g.name ?? id);
-            const itemsRaw = (g.items ?? g.variables ?? g.values ?? []) as any[];
+            const itemsRaw = (g.items ?? g.variables ?? g.values ?? []) as Record<string, unknown>[];
             const items = itemsRaw
               .filter(Boolean)
               .map((it) => {
