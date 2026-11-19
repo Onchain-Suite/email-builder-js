@@ -1,17 +1,16 @@
-import React from 'react';
-
 import {
-  UserRound,
-  Crop,
-  Heading,
-  Minus,
-  Code2,
-  Image,
   Box,
-  FileText,
-  SquareMousePointer,
+  Code2,
   Columns,
+  Crop,
+  FileText,
+  Heading,
+  Image,
+  Minus,
+  SquareMousePointer,
+  UserRound,
 } from 'lucide-react';
+import React from 'react';
 
 import { TEditorBlock } from '../../../../editor/core';
 

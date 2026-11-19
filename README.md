@@ -200,7 +200,7 @@ await axios({
 });
 ```
 
-***
+---
 
 ## Self hosting the Editor
 
@@ -217,7 +217,7 @@ Go to the editor-sample package: `cd packages/editor-sample`
 - Run the server: `npx vite`
 - Open in browser: <http://localhost:5173/email-builder-js/>
 
-***
+---
 
 ## Contribute
 
@@ -225,7 +225,7 @@ Feel free to report any bug on the issues page. If possible, please add steps, i
 
 If you are looking to provide code contribututions to EmailBuilder.js, please fork the repository and create a new pull request. We will check your code closely and provide feedback.
 
-***
+---
 
 <br />
 

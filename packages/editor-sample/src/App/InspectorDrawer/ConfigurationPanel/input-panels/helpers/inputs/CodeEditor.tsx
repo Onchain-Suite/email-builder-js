@@ -1,9 +1,9 @@
-import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-import { Box, Chip, Dialog, IconButton, Stack, SxProps, Tooltip, Typography } from '@mui/material';
 import hljs from 'highlight.js/lib/core';
 import xml from 'highlight.js/lib/languages/xml';
 import { Check, Copy, Maximize2, Minimize2, Wand2, WrapText } from 'lucide-react';
+import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { Box, Chip, Dialog, IconButton, Stack, SxProps, Tooltip, Typography } from '@mui/material';
 
 hljs.registerLanguage('xml', xml);
 
@@ -236,7 +236,12 @@ const CodeEditor = forwardRef<HTMLTextAreaElement, CodeEditorProps>(function Cod
             </span>
           </Tooltip>
           <Tooltip title={wrap ? 'Disable soft wrap' : 'Enable soft wrap'}>
-            <IconButton size="small" sx={{ p: 0.5 }} onClick={() => setWrap((w) => !w)} color={wrap ? 'primary' : 'default'}>
+            <IconButton
+              size="small"
+              sx={{ p: 0.5 }}
+              onClick={() => setWrap((w) => !w)}
+              color={wrap ? 'primary' : 'default'}
+            >
               <WrapText size={15} />
             </IconButton>
           </Tooltip>
@@ -255,7 +260,9 @@ const CodeEditor = forwardRef<HTMLTextAreaElement, CodeEditorProps>(function Cod
         </Stack>
       </Stack>
 
-      <Box sx={{ display: 'flex', position: 'relative', height: bodyHeight, flex: expanded ? 1 : undefined, minHeight: 0 }}>
+      <Box
+        sx={{ display: 'flex', position: 'relative', height: bodyHeight, flex: expanded ? 1 : undefined, minHeight: 0 }}
+      >
         {wrap ? null : (
           <Box
             ref={gutterRef}
@@ -295,11 +302,7 @@ const CodeEditor = forwardRef<HTMLTextAreaElement, CodeEditorProps>(function Cod
               color: '#24292e',
             }}
           >
-            {highlighted === null ? (
-              value
-            ) : (
-              <code dangerouslySetInnerHTML={{ __html: `${highlighted}\n` }} />
-            )}
+            {highlighted === null ? value : <code dangerouslySetInnerHTML={{ __html: `${highlighted}\n` }} />}
           </Box>
           <Box
             component="textarea"

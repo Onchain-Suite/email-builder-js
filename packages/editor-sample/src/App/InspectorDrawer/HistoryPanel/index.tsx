@@ -54,7 +54,6 @@ function formatDate(iso: string | null): string | null {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-
 export type TConfirmRequest = {
   title: string;
   message: string;

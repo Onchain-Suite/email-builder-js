@@ -37,7 +37,12 @@ export default function InspectorDrawer() {
     >
       <Box sx={{ width: INSPECTOR_DRAWER_WIDTH, height: 49, borderBottom: 1, borderColor: 'divider' }}>
         <Box px={2}>
-          <Tabs value={selectedSidebarTab} onChange={(_: React.SyntheticEvent, v: any) => setSidebarTab(v)}>
+          <Tabs
+            value={selectedSidebarTab}
+            onChange={(_: React.SyntheticEvent, v: 'blocks' | 'block-configuration' | 'styles' | 'history') =>
+              setSidebarTab(v)
+            }
+          >
             <Tab value="history" label="History" />
             <Tab value="styles" label="Styles" />
             <Tab value="block-configuration" label="Inspect" />
