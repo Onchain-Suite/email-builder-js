@@ -179,14 +179,25 @@ function wrapCentered(html: string): string {
   );
 }
 
-/** Adds `display:inline-block;width:100%` (once) to the card's inline style. */
+/**
+ * Makes the card an `display:inline-block` box so the wrapper cell's
+ * `text-align:center` can center it, and resets `text-align:left` on the card
+ * itself so that same centering does NOT cascade into the card's text content.
+ * Without the reset, every block that doesn't set its own alignment (the
+ * editor's default-left Text/Heading blocks) inherits `center` and the sent
+ * email reads centered while the editor shows left. Blocks that set their own
+ * `text-align` (e.g. a centered button) still win.
+ */
 function ensureInlineBlockCard(tag: string): string {
   const style = getStyleAttr(tag) ?? '';
   if (/display:\s*inline-block/i.test(style)) {
     return tag;
   }
-  const additions = `display:inline-block;width:100%`;
-  const nextStyle = style ? `${style.replace(/;\s*$/, '')};${additions}` : additions;
+  // Only inject a text-align reset when the card doesn't already declare one,
+  // so we never override an imported layout's intentional alignment.
+  const resetAlign = /text-align\s*:/i.test(style) ? '' : ';text-align:left';
+  const additions = `display:inline-block;width:100%${resetAlign}`;
+  const nextStyle = style ? `${style.replace(/;\s*$/, '')};${additions}` : additions.replace(/^;/, '');
   return setStyleAttr(tag, 'table', nextStyle);
 }
 

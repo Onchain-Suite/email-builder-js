@@ -20,5 +20,5 @@
     // which previously shadowed the .tsx sources in the dev server.
     "noEmit": true
   },
-  "exclude": ["dist"]
+  "exclude": ["dist", "**/*.spec.ts", "**/*.spec.tsx"]
 }
