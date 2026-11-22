@@ -114,6 +114,33 @@ describe('preview ↔ delivery parity', () => {
     (delivered.match(/<img\b[^>]*>/gi) ?? []).forEach((tag) => expect(tag).toMatch(/max-width/i));
   });
 
+  describe('dark-mode awareness (layer 5)', () => {
+    it('signals color-scheme in the head and the stylesheet', () => {
+      expect(exported).toMatch(/<meta name="color-scheme" content="light dark"\/>/i);
+      expect(exported).toMatch(/<meta name="supported-color-schemes" content="light dark"\/>/i);
+      expect(exported).toMatch(/color-scheme:\s*light dark/i);
+    });
+
+    it('carries color-scheme in the body-level <style> too, so it survives body-only forwarding', () => {
+      // Some pipelines forward only <body> inner HTML (head gone, body <style> kept).
+      const bodyOnly = exported.replace(/<head[\s\S]*?<\/head>/i, '');
+      expect(bodyOnly).toMatch(/color-scheme:\s*light dark/i);
+    });
+
+    it('injects the dark-mode metas into an imported layout that already has a <head>', () => {
+      const raw = '<html><head><title>x</title></head><body><div style="background-color:#eee">y</div></body></html>';
+      const out = makeResponsiveHtml(raw);
+      expect(out).toMatch(/<meta name="color-scheme" content="light dark"\/>/i);
+      expect(out).toMatch(/<title>x<\/title>/i); // existing head preserved
+    });
+
+    it('is a documented no-op behind the head-stripping transport (why the send-pipeline fix is needed)', () => {
+      // Honest invariant: color-scheme rides the head/<style>, both of which the
+      // transport removes — so it reaches inboxes only once that transport keeps them.
+      expect(delivered).not.toMatch(/color-scheme/i);
+    });
+  });
+
   it('does not override an imported layout that already sets its own card alignment', () => {
     // A raw card that already declares text-align:center must be left untouched.
     const raw =

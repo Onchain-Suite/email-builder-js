@@ -17,9 +17,20 @@
  * 4. A <head> with viewport meta and a media-query stylesheet for clients
  *    that support it: multi-column layout tables (tagged via their inline
  *    `table-layout:fixed`) stack vertically on small screens.
+ * 5. Dark-mode awareness: `color-scheme`/`supported-color-schemes` metas and a
+ *    `:root { color-scheme: light dark }` rule, so dark-mode clients (Apple
+ *    Mail, iOS, Outlook) adapt gently instead of force-inverting the palette.
+ *    Like layer 4 this is a progressive enhancement — it only bites where the
+ *    <head>/<style> survive (preview, forwards, lenient clients, and any send
+ *    path that does NOT strip the head). Behind a head-stripping transport it
+ *    is a no-op and the email renders exactly as today; making it reach inboxes
+ *    there is a send-pipeline change, not a builder one.
  *
  * Deliberately absent: a blanket mobile `table { width:100% !important }` —
- * it stretched small tables (buttons, badges) across the full screen.
+ * it stretched small tables (buttons, badges) across the full screen; and a
+ * custom dark *palette* (recoloring backgrounds/text), which would need class
+ * hooks on every block and would fight emails a user intentionally designed
+ * dark — `color-scheme` lets the client do the safe adaptation instead.
  */
 
 // Containers narrower than this are intentional (buttons, avatars) — leave
@@ -30,6 +41,7 @@ const FLUID_MIN_PX = 480;
 const DEFAULT_BACKDROP = '#F5F5F5';
 
 const RESPONSIVE_STYLES = `
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
   body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
   img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
@@ -50,9 +62,16 @@ const HEAD_MARKUP = [
   '<meta charset="utf-8"/>',
   '<meta name="viewport" content="width=device-width, initial-scale=1"/>',
   '<meta http-equiv="X-UA-Compatible" content="IE=edge"/>',
+  '<meta name="color-scheme" content="light dark"/>',
+  '<meta name="supported-color-schemes" content="light dark"/>',
   `<style>${RESPONSIVE_STYLES}</style>`,
   '</head>',
 ].join('');
+
+// Dark-mode metas injected when a <head> already exists (imported layouts),
+// alongside the viewport + stylesheet. Mirrors HEAD_MARKUP.
+const DARK_MODE_METAS =
+  '<meta name="color-scheme" content="light dark"/>' + '<meta name="supported-color-schemes" content="light dark"/>';
 
 function getStyleAttr(tag: string): string | null {
   const m = tag.match(/style="([^"]*)"/i);
@@ -232,7 +251,7 @@ export default function makeResponsiveHtml(html: string): string {
   if (/<head[\s>]/i.test(out)) {
     out = out.replace(
       /<head([^>]*)>/i,
-      `<head$1><meta name="viewport" content="width=device-width, initial-scale=1"/><style>${RESPONSIVE_STYLES}</style>`
+      `<head$1><meta name="viewport" content="width=device-width, initial-scale=1"/>${DARK_MODE_METAS}<style>${RESPONSIVE_STYLES}</style>`
     );
   } else {
     out = out.replace(/<html([^>]*)>/i, `<html$1>${HEAD_MARKUP}`);
