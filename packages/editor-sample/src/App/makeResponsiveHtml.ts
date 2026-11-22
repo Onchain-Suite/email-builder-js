@@ -20,11 +20,15 @@
  * 5. Dark-mode awareness: `color-scheme`/`supported-color-schemes` metas and a
  *    `:root { color-scheme: light dark }` rule, so dark-mode clients (Apple
  *    Mail, iOS, Outlook) adapt gently instead of force-inverting the palette.
- *    Like layer 4 this is a progressive enhancement — it only bites where the
- *    <head>/<style> survive (preview, forwards, lenient clients, and any send
- *    path that does NOT strip the head). Behind a head-stripping transport it
- *    is a no-op and the email renders exactly as today; making it reach inboxes
- *    there is a send-pipeline change, not a builder one.
+ *    These ride the <head>/<style>. The current send backend PRESERVES them:
+ *    its sanitizer keeps the document head (allow-listing the color-scheme
+ *    metas) and runs <style> through a CSS sanitizer that keeps `@media` and
+ *    `:root` rules, and the ESP (SendGrid / Amazon SES) transmits the HTML
+ *    without rewriting the head. So these signals reach the inbox today. Like
+ *    layer 4 they are still a progressive enhancement: a maximally-aggressive
+ *    transport that stripped the head/<style> (the worst case the parity spec
+ *    models) would drop them, and the email would render exactly as today —
+ *    the inline layers above are the floor that always survives.
  *
  * Deliberately absent: a blanket mobile `table { width:100% !important }` —
  * it stretched small tables (buttons, badges) across the full screen; and a

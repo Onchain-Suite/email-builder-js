@@ -6,11 +6,17 @@
  * Preview ↔ delivery parity guardrail.
  *
  * The editor's preview renders the exact output of `makeResponsiveHtml`. The
- * delivered email is that output after the send transport (Azure Communication
- * Services / Exchange Online) rewrites it — and after a recipient client (Gmail,
- * etc.) renders it. We can't control every client, but we CAN guarantee that
- * what we hand the transport stays visually faithful to the editor through the
- * transport's known mutations.
+ * delivered email is that output after the send backend sanitizes it and the
+ * ESP transmits it — and after a recipient client (Gmail, etc.) renders it.
+ *
+ * The current backend sanitizer PRESERVES the document head (metas, <style>)
+ * and the ESP (SendGrid / Amazon SES) does not rewrite it, so head-based
+ * responsive/dark-mode signals survive. The `sanitizeLikeTransport` model
+ * below is deliberately the WORST case — a maximally-aggressive legacy transport
+ * (Azure Communication Services / Exchange Online) that strips the head, all
+ * <style>, align/table attrs, margins and comments. We assert faithfulness even
+ * under that worst case, because the inline layer is the floor that must hold
+ * no matter what any client or forwarding hop strips.
  *
  * This suite asserts the structural invariants that make that true, and would
  * have caught both shipped regressions:
@@ -27,11 +33,15 @@ import { renderToStaticMarkup, TReaderDocument } from '@usewaypoint/email-builde
 import makeResponsiveHtml from './makeResponsiveHtml';
 
 /**
- * Faithful model of the send transport, reverse-engineered from a captured
- * sent MIME: it drops <html>/<head>/<body>/<style>, ALL `align` and table
+ * WORST-CASE transport model (a maximally-aggressive legacy Azure/Exchange
+ * path, reverse-engineered from a captured sent MIME). The CURRENT backend
+ * does NOT strip like this — it keeps the head and <style> — but we still
+ * assert survival under this model so the inline layer remains a guaranteed
+ * floor for any client or forwarding hop that does strip. It drops
+ * <html>/<head>/<body>/<style>, ALL `align` and table
  * `role`/`cellspacing`/`cellpadding`/`border`/`width` attributes, `margin`
  * out of inline styles, and HTML comments. Only inline `style` properties
- * survive — which is exactly what our centering/alignment now relies on.
+ * survive — which is exactly what our centering/alignment relies on.
  */
 function sanitizeLikeTransport(html: string): string {
   return html
@@ -134,9 +144,11 @@ describe('preview ↔ delivery parity', () => {
       expect(out).toMatch(/<title>x<\/title>/i); // existing head preserved
     });
 
-    it('is a documented no-op behind the head-stripping transport (why the send-pipeline fix is needed)', () => {
-      // Honest invariant: color-scheme rides the head/<style>, both of which the
-      // transport removes — so it reaches inboxes only once that transport keeps them.
+    it('degrades safely under the worst-case head-stripping transport (inline floor still holds)', () => {
+      // color-scheme rides the head/<style>. The current backend keeps those, so
+      // it ships; but under the worst-case model it is dropped and the email just
+      // renders as today — no broken output. (The centering/alignment invariants
+      // above prove the inline floor survives that same worst case.)
       expect(delivered).not.toMatch(/color-scheme/i);
     });
   });
