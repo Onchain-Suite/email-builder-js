@@ -18,6 +18,9 @@ import { VariablesProvider } from '../documents/editor/VariablesContext';
 
 import { setApiSession } from './api/session';
 import makeResponsiveHtml from './makeResponsiveHtml';
+import { runEditorSave } from './presend/editorSave';
+import { EMAIL_SAVE_BLOCK_CLEARED, presendSignature, TPresendBlock, TSaveSource } from './presend/presendBlock';
+import PresendBlockedDialog from './presend/PresendBlockedDialog';
 import SamplesDrawer, { SAMPLES_DRAWER_WIDTH } from './SamplesDrawer';
 import TemplatePanel from './TemplatePanel';
 
@@ -225,6 +228,12 @@ export default function App() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [savedReusableTemplateId, setSavedReusableTemplateId] = useState<string | null>(null);
   const [savedReusableTemplateName, setSavedReusableTemplateName] = useState<string | null>(null);
+  // A save the backend refused for a pre-send content block (422 PRESEND_BLOCKED).
+  // The document is left untouched; only the dialog and the host are told.
+  const [presendBlock, setPresendBlock] = useState<TPresendBlock | null>(null);
+  // Signature of the last refusal shown, so a repeating autosave of the same
+  // content does not reopen the dialog on every keystroke. null = last save OK.
+  const lastBlockSignatureRef = useRef<string | null>(null);
 
   const [apiUrl, setApiUrl] = useState(() => {
     if (initialEmbedded) return '';
@@ -343,6 +352,23 @@ export default function App() {
     const text = await res.text().catch(() => '');
     return new Error(text || `Request failed (HTTP ${res.status})`);
   }, []);
+
+  const onSaveBlocked = useCallback((block: TPresendBlock, source: TSaveSource) => {
+    const signature = presendSignature(block);
+    // The explicit Save button always explains itself; autosave only when the
+    // reason changed since the last refusal the user saw.
+    if (source === 'save' || signature !== lastBlockSignatureRef.current) {
+      setPresendBlock(block);
+    }
+    lastBlockSignatureRef.current = signature;
+  }, []);
+
+  const onSaveSucceeded = useCallback(() => {
+    if (lastBlockSignatureRef.current !== null) {
+      lastBlockSignatureRef.current = null;
+      postToParent({ type: EMAIL_SAVE_BLOCK_CLEARED, payload: { campaignId, designId } });
+    }
+  }, [campaignId, designId, postToParent]);
 
   useEffect(() => {
     if (!effectiveEmbedded) return;
@@ -482,21 +508,45 @@ export default function App() {
         if (orgId) {
           headers['x-org-id'] = orgId;
         }
-        const res = await fetch(`${apiUrl}/${contentBase}/editor/saved`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ html, json, textVersion, push: push ?? null }),
-          credentials: requestCredentials,
+        const outcome = await runEditorSave({
+          send: () =>
+            fetch(`${apiUrl}/${contentBase}/editor/saved`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ html, json, textVersion, push: push ?? null }),
+              credentials: requestCredentials,
+            }),
+          source: 'autosave',
+          context: { campaignId, designId },
+          postToParent,
         });
-        if (res.ok) {
+        if (outcome.kind === 'saved') {
           lastAutosavedRef.current = serialized;
+          onSaveSucceeded();
+        } else if (outcome.kind === 'blocked') {
+          // Not recorded as autosaved, so the next edit retries it.
+          onSaveBlocked(outcome.block, 'autosave');
         }
       } catch {
         // Autosave is best-effort; explicit Save Template reports errors.
       }
     }, 4000);
     return () => window.clearTimeout(timer);
-  }, [document, pushContent, contentBase, apiUrl, token, orgId, effectiveEmbedded, requestCredentials]);
+  }, [
+    document,
+    pushContent,
+    contentBase,
+    apiUrl,
+    token,
+    orgId,
+    effectiveEmbedded,
+    requestCredentials,
+    campaignId,
+    designId,
+    postToParent,
+    onSaveBlocked,
+    onSaveSucceeded,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -664,22 +714,35 @@ export default function App() {
         headers['x-org-id'] = orgId;
       }
 
-      const res = await fetch(`${apiUrl}/${contentBase}/email`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({
-          html,
-          json,
-          textVersion,
-          // Explicit null clears a previously saved push; the backend treats
-          // an absent field as "leave unchanged".
-          push: push ?? null,
-        }),
-        credentials: requestCredentials,
+      const outcome = await runEditorSave({
+        send: () =>
+          fetch(`${apiUrl}/${contentBase}/email`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({
+              html,
+              json,
+              textVersion,
+              // Explicit null clears a previously saved push; the backend treats
+              // an absent field as "leave unchanged".
+              push: push ?? null,
+            }),
+            credentials: requestCredentials,
+          }),
+        source: 'save',
+        context: { campaignId, designId },
+        postToParent,
       });
 
-      if (!res.ok) {
-        if (res.status === 401 && effectiveEmbedded) {
+      if (outcome.kind === 'blocked') {
+        // Refused by a pre-send block: no "saved" message, no EMAIL_SAVED to
+        // the host, and the user's edits stay in the editor.
+        onSaveBlocked(outcome.block, 'save');
+        return;
+      }
+
+      if (outcome.kind === 'failed') {
+        if (outcome.status === 401 && effectiveEmbedded) {
           postToParent({
             type: 'EMAIL_AUTH_DEBUG',
             payload: {
@@ -693,9 +756,10 @@ export default function App() {
           });
           postToParent({ type: 'EMAIL_AUTH_REQUIRED', payload: { campaignId } });
         }
-        throw await buildErrorFromResponse(res);
+        throw outcome.error;
       }
 
+      onSaveSucceeded();
       setSuccessMessage('Template saved.');
 
       if (effectiveEmbedded) {
@@ -791,6 +855,8 @@ export default function App() {
       >
         {savingTemplate ? 'Saving…' : 'Save Template'}
       </Button>
+
+      <PresendBlockedDialog block={presendBlock} onClose={() => setPresendBlock(null)} />
 
       <Backdrop open={loadingTemplate} sx={{ zIndex: (theme) => theme.zIndex.modal + 1 }}>
         <Stack direction="row" alignItems="center" gap={2}>
